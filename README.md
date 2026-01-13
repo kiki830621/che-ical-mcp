@@ -1,206 +1,124 @@
-# MCP iCal Server
+# che-ical-mcp
 
-<div align="center">
+macOS Calendar & Reminders management via MCP and EventKit.
 
-🗓️ Natural Language Calendar Management for macOS
+## Features
 
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://modelcontextprotocol.io)
+| Category | Tool | Description |
+|----------|------|-------------|
+| **Calendars** | `list_calendars` | List all calendars and reminder lists |
+| | `create_calendar` | Create a new calendar |
+| | `delete_calendar` | Delete a calendar |
+| **Events** | `list_events` | List events in a date range |
+| | `create_event` | Create an event (with reminders, location, URL) |
+| | `update_event` | Update an event |
+| | `delete_event` | Delete an event |
+| **Reminders** | `list_reminders` | List reminders |
+| | `create_reminder` | Create a reminder |
+| | `update_reminder` | Update a reminder |
+| | `complete_reminder` | Mark as completed/incomplete |
+| | `delete_reminder` | Delete a reminder |
 
-</div>
+## Requirements
 
-## 🌟 Overview
+- macOS 13.0+
+- Xcode Command Line Tools
 
-Transform how you interact with your macOS calendar using natural language! The mcp-ical server leverages the Model Context Protocol (MCP) to turn your calendar management into a conversational experience.
+## Installation
+
+### 1. Clone and Build
 
 ```bash
-You: "What's my schedule for next week?"
-Claude: "Let me check that for you..."
-[Displays a clean overview of your upcoming week]
+git clone https://github.com/kiki830621/che-ical-mcp.git
+cd che-ical-mcp
 
-You: "Add a lunch meeting with Sarah tomorrow at noon"
-Claude: "✨ 📅 Created: Lunch with Sarah Tomorrow, 12:00 PM"
+# Build release version
+swift build -c release
+
+# Verify the binary exists
+ls -la .build/release/CheICalMCP
 ```
 
-## ✨ Features
+### 2. Configure MCP Client
 
-### 📅 Event Creation
+#### Option A: Claude Desktop
 
-Transform natural language into calendar events instantly!
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
-```text
-"Schedule a team lunch next Thursday at 1 PM at Bistro Garden"
-↓
-📎 Created: Team Lunch
-   📅 Thursday, 1:00 PM
-   📍 Bistro Garden
-```
-
-#### Supported Features
-
-- Custom calendar selection
-- Location and notes
-- Smart reminders
-- Recurring events
-
-#### Power User Examples
-
-```text
-🔄 Recurring Events:
-"Set up my weekly team sync every Monday at 9 AM with a 15-minute reminder"
-
-📝 Detailed Events:
-"Schedule a product review meeting tomorrow from 2-4 PM in the Engineering calendar, 
-add notes about reviewing Q1 metrics, and remind me 1 hour before"
-
-📱 Multi-Calendar Support:
-"Add a dentist appointment to my Personal calendar for next Wednesday at 3 PM"
-```
-
-### 🔍 Smart Schedule Management & Availability
-
-Quick access to your schedule with natural queries:
-
-```text
-"What's on my calendar for next week?"
-↓
-📊 Shows your upcoming events with smart formatting
-
-"When am I free to schedule a 2-hour meeting next Tuesday?"
-↓
-🕒 Available time slots found:
-   • Tuesday 10:00 AM - 12:00 PM
-   • Tuesday 2:00 PM - 4:00 PM
-```
-
-### ✏️ Intelligent Event Updates
-
-Modify events naturally:
-
-```text
-Before: "Move tomorrow's team meeting to 3 PM instead"
-↓
-After: ✨ Meeting rescheduled to 3:00 PM
-```
-
-#### Update Capabilities
-
-- Time and date modifications
-- Calendar transfers
-- Location updates
-- Note additions
-- Reminder adjustments
-- Recurring pattern changes
-
-### 📊 Calendar Management
-
-- View all available calendars
-- Smart calendar suggestions
-- Seamless Google Calendar integration when configured with iCloud
-
-> 💡 **Pro Tip**: Since you can create events in custom calendars, if you have your Google Calendar synced with your iCloud Calendar, you can use this MCP server to create events in your Google Calendar too! Just specify the Google calendar when creating/updating events.
-
-## 🚀 Quick Start
-
-> 💡 **Note**: While these instructions focus on setting up the MCP server with Claude for Desktop, this server can be used with any MCP-compatible client. For more details on using different clients, see [the MCP documentation](https://modelcontextprotocol.io/quickstart/client).
-
-### Prerequisites
-
-- [uv package manager](https://github.com/astral-sh/uv)
-- macOS with Calendar app configured
-- An MCP client - [Claude for desktop](https://claude.ai/download) is recommended
-
-### Installation
-
-Whilst this MCP server can be used with any MCP compatible client, the instructions below are for use with Claude for desktop.
-
-1. **Clone and Setup**
-
-    ```bash
-    # Clone the repository
-    git clone https://github.com/Omar-V2/mcp-ical.git
-    cd mcp-ical
-
-    # Install dependencies
-    uv sync
-    ```
-
-2. **Configure Claude for Desktop**
-
-    Create or edit `~/Library/Application\ Support/Claude/claude_desktop_config.json`:
-
-    ```json
-    {
-        "mcpServers": {
-            "mcp-ical": {
-                "command": "uv",
-                "args": [
-                    "--directory",
-                    "/ABSOLUTE/PATH/TO/PARENT/FOLDER/mcp-ical",
-                    "run",
-                    "mcp-ical"
-                ]
-            }
-        }
+```json
+{
+  "mcpServers": {
+    "che-ical-mcp": {
+      "command": "/path/to/che-ical-mcp/.build/release/CheICalMCP"
     }
-    ```
-
-3. **Launch Claude for Calendar Access**
-
-    > ⚠️ **Critical**: Claude must be launched from the terminal to properly request calendar permissions. Launching directly from Finder will not trigger the permissions prompt.
-
-    Run the following command in your terminal.
-
-    ```bash
-    /Applications/Claude.app/Contents/MacOS/Claude
-    ```
-
-    > ⚠️ **Warning**: Alternatively, you can [manually grant calendar access](docs/install.md#method-2-manually-grant-calendar-access), but this involves modifying system files and should only be done if you understand the risks involved.
-
-4. **Start Using!**
-
-    ```text
-    Try: "What's my schedule looking like for next week?"
-    ```
-
-> 🔑 **Note**: When you first use a calendar-related command, macOS will prompt for calendar access. This prompt will only appear if you launched Claude from the terminal as specified above.
-
-## 🧪 Testing
-
-> ⚠️ **Warning**: Tests will create temporary calendars and events. While cleanup is automatic, only run tests in development environments.
-
-```bash
-# Install dev dependencies
-uv sync --dev
-
-# Run test suite
-uv run pytest tests
+  }
+}
 ```
 
-## 🐛 Known Issues
+#### Option B: Claude Code
 
-### Recurring Events
+Edit `~/.claude/settings.json`:
 
-- Non-standard recurring schedules may not always be set correctly
-- Better results with Claude 3.5 Sonnet compared to Haiku
-- Reminder timing for recurring all-day events may be off by one day
+```json
+{
+  "mcpServers": {
+    "che-ical-mcp": {
+      "command": "/path/to/che-ical-mcp/.build/release/CheICalMCP"
+    }
+  }
+}
+```
 
-## 🤝 Contributing
+Or use CLI:
+```bash
+claude mcp add che-ical-mcp /path/to/che-ical-mcp/.build/release/CheICalMCP
+```
 
-Feedback and contributions are welcome. Here's how you can help:
+Replace `/path/to/` with your actual path.
 
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
+### 3. Grant Permissions
 
-## 📝 License
+On first use, macOS will prompt for Calendar and Reminders access. Click "Allow".
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### 4. Restart
 
-## 🙏 Acknowledgments
+For Claude Desktop:
+```bash
+osascript -e 'quit app "Claude"' && sleep 2 && open -a "Claude"
+```
 
-- Built with [Model Context Protocol](https://modelcontextprotocol.io)
-- macOS Calendar integration built with [PyObjC](https://github.com/ronaldoussoren/pyobjc)
+For Claude Code:
+```bash
+# Start a new session
+claude
+```
+
+## Usage Examples
+
+```
+"List all my calendars"
+"What's on my schedule next week?"
+"Create a meeting tomorrow at 2 PM in Conference Room A"
+"List my incomplete reminders"
+"Add a reminder: Buy milk"
+"Mark 'Buy milk' as completed"
+```
+
+## Technical Details
+
+- Built with Swift and [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.10.0
+- Uses EventKit framework for native macOS Calendar and Reminders access
+- Supports iCloud-synced calendars (including Google Calendar)
+
+## Version History
+
+- **v0.2.0** - Swift rewrite with Reminders support
+- **v0.1.x** - Python version (deprecated, backup in `_python_backup/`)
+
+## License
+
+MIT
+
+## Author
+
+Created by Che Cheng ([@kiki830621](https://github.com/kiki830621))

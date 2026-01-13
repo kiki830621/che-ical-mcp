@@ -1,12 +1,17 @@
-# Python-generated files
+# Swift
+.build/
+.swiftpm/
+Package.resolved
+
+# Python (legacy)
 __pycache__/
 *.py[oc]
 build/
 dist/
 wheels/
 *.egg-info
-
-# Virtual environments
 .venv
+
+# IDE
 .vscode
 .DS_Store

@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-01-13
+
+### Added
+- **Complete Swift rewrite** using official MCP Swift SDK v0.10.0
+- **Reminder support** with full CRUD operations:
+  - `list_reminders` - List reminders with completion filter
+  - `create_reminder` - Create with due date, priority, alarms
+  - `update_reminder` - Update any reminder property
+  - `complete_reminder` - Mark as completed/incomplete
+  - `delete_reminder` - Remove reminder
+- **Calendar management**:
+  - `create_calendar` - Create event calendars or reminder lists
+  - `delete_calendar` - Remove calendars
+- Native EventKit integration for better macOS compatibility
+
+### Changed
+- **BREAKING**: Rewritten from Python to Swift
+- Claude Desktop config now points to Swift binary `.build/release/CheICalMCP`
+- Python version backed up to `_python_backup/`
+
+### Technical Notes
+- Uses MCP Swift SDK v0.10.0 (github.com/modelcontextprotocol/swift-sdk)
+- Direct EventKit API access (no PyObjC bridge)
+- StdioTransport for JSON-RPC communication
+- Requires macOS 13.0+
+
 ## [0.1.0] - 2025-01-13
 
 ### Added
