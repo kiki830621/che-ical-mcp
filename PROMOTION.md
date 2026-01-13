@@ -1,0 +1,188 @@
+# che-ical-mcp Promotion Guide
+
+## 1. MCP Official Servers List PR
+
+**Status**: ✅ Submitted - https://github.com/modelcontextprotocol/servers/pull/3209
+
+---
+
+## 2. Social Media Posts
+
+### Twitter/X Post
+
+```
+Introducing che-ical-mcp - macOS Calendar & Reminders MCP server
+
+12 tools for complete calendar and task management:
+- Calendar events (CRUD)
+- Reminders/Tasks support (unique!)
+- iCloud, Google Calendar, Outlook
+
+Built natively in Swift with EventKit
+
+https://github.com/kiki830621/che-ical-mcp
+
+#Claude #MCP #macOS #Swift #Calendar
+```
+
+### Twitter/X Thread Version
+
+```
+1/4 Introducing che-ical-mcp - macOS Calendar & Reminders MCP server
+
+Unlike other calendar MCPs, this one includes FULL Reminders support!
+
+https://github.com/kiki830621/che-ical-mcp
+
+2/4 12 tools available:
+
+Calendar:
+- list_calendars, create_calendar, delete_calendar
+
+Events:
+- list_events, create_event, update_event, delete_event
+
+Reminders:
+- list_reminders, create_reminder, update_reminder, complete_reminder, delete_reminder
+
+3/4 Works with all your calendars:
+- iCloud Calendar
+- Google Calendar
+- Microsoft Outlook/Exchange
+- CalDAV calendars
+
+Built with Swift using native EventKit framework
+
+4/4 Installation is simple:
+
+git clone + swift build -c release
+Then add to Claude Desktop or Claude Code
+
+macOS 13.0+ required
+
+#Claude #MCP #macOS #Swift #Calendar @AnthropicAI
+```
+
+### Reddit Post (r/ClaudeAI)
+
+**Title**: I built a macOS Calendar & Reminders MCP - 12 tools including full Reminders support
+
+**Body**:
+```
+Hey everyone!
+
+I've created an MCP server for macOS Calendar and Reminders.
+
+**che-ical-mcp** provides 12 tools covering both calendar events AND reminders/tasks.
+
+### What makes it different?
+
+Most calendar MCPs only handle events. This one also provides complete Reminders integration:
+- List reminders (all or by list)
+- Create reminders with due dates
+- Update reminders
+- Mark as completed/incomplete
+- Delete reminders
+
+### Calendar features
+
+- List all calendars (iCloud, Google, Outlook, etc.)
+- Create/update/delete events
+- Support for locations, URLs, and event reminders
+
+### Technical details
+
+- Built natively in Swift
+- Uses EventKit (macOS native framework)
+- Works with Claude Desktop and Claude Code
+- macOS 13.0+ required
+
+### Links
+
+- GitHub: https://github.com/kiki830621/che-ical-mcp
+- Chinese README: README_zh-TW.md
+
+Would love any feedback!
+```
+
+### Reddit Post (r/MacOS)
+
+**Title**: Open source: macOS Calendar & Reminders automation through MCP - Swift native with EventKit
+
+**Body**:
+```
+For anyone using Claude AI with macOS, I built an MCP server that provides full access to Calendar and Reminders.
+
+**che-ical-mcp** includes 12 tools:
+
+Calendar Management:
+- List, create, delete calendars
+
+Events:
+- List events by date range
+- Create events with location, URL, reminders
+- Update and delete events
+
+Reminders (unique feature!):
+- List reminders by list
+- Create reminders with due dates
+- Mark as complete/incomplete
+- Update and delete
+
+Works with iCloud, Google Calendar, Outlook, and any CalDAV source.
+
+GitHub: https://github.com/kiki830621/che-ical-mcp
+
+Built with Swift and EventKit - happy to answer any questions!
+```
+
+### Hacker News (Show HN)
+
+**Title**: Show HN: che-ical-mcp – macOS Calendar and Reminders MCP server in Swift
+
+**Body**:
+```
+I built an MCP (Model Context Protocol) server for macOS Calendar and Reminders with 12 tools.
+
+GitHub: https://github.com/kiki830621/che-ical-mcp
+
+Key differentiator: Full Reminders support (most calendar MCPs only handle events)
+
+Tools included:
+- Calendar: list, create, delete
+- Events: list, create, update, delete (with location, URL, reminders)
+- Reminders: list, create, update, complete, delete
+
+Technical stack:
+- Swift with MCP Swift SDK v0.10.0
+- EventKit (native macOS framework)
+- stdio transport
+- macOS 13.0+
+
+Works with iCloud, Google Calendar, Microsoft Outlook/Exchange, and CalDAV.
+
+Feedback welcome!
+```
+
+---
+
+## 3. GitHub Repository Settings
+
+### Description (已設定)
+```
+macOS Calendar & Reminders MCP server with 12 tools - Swift native EventKit integration for Claude AI
+```
+
+### Topics (已設定)
+```
+mcp, calendar, reminders, swift, macos, eventkit, claude, automation, ical, model-context-protocol
+```
+
+---
+
+## 4. Related Projects
+
+Consider cross-promoting with che-apple-mail-mcp:
+- Same author
+- Same tech stack (Swift + MCP SDK)
+- Complementary functionality (Email + Calendar/Reminders)
