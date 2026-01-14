@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-01-14
+
+### Added
+- **Timezone display**: All date outputs now include local time (`*_local` fields) and `timezone` identifier
+- **Search events** (`search_events`): Search events by keyword in title, notes, or location
+- **Quick time range** (`list_events_quick`): Shortcuts for common ranges:
+  - `today`, `tomorrow`
+  - `this_week`, `next_week`
+  - `this_month`
+  - `next_7_days`, `next_30_days`
+- **Batch create** (`create_events_batch`): Create multiple events in one call with per-event success/failure reporting
+- **Conflict detection** (`check_conflicts`): Check for overlapping events before scheduling
+
+### Changed
+- Tool count increased from 12 to 16
+- All event and reminder outputs now include timezone information
+
+### Removed
+- Python backup directory (`_python_backup/`) - Swift rewrite is complete
+
 ## [0.2.0] - 2026-01-13
 
 ### Added
@@ -23,7 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **BREAKING**: Rewritten from Python to Swift
 - Claude Desktop config now points to Swift binary `.build/release/CheICalMCP`
-- Python version backed up to `_python_backup/`
 
 ### Technical Notes
 - Uses MCP Swift SDK v0.10.0 (github.com/modelcontextprotocol/swift-sdk)

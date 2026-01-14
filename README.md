@@ -17,6 +17,10 @@
 |---------|---------------------|--------------|
 | Calendar Events | Yes | Yes |
 | **Reminders/Tasks** | No | **Yes** |
+| **Search Events** | No | **Yes** |
+| **Conflict Detection** | No | **Yes** |
+| **Batch Operations** | No | **Yes** |
+| **Local Timezone** | No | **Yes** |
 | Create Calendar | Some | Yes |
 | Delete Calendar | Some | Yes |
 | Event Reminders | Some | Yes |
@@ -41,7 +45,7 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 
 ---
 
-## All 12 Tools
+## All 16 Tools
 
 <details>
 <summary><b>Calendars (3)</b></summary>
@@ -76,6 +80,18 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 | `update_reminder` | Update a reminder |
 | `complete_reminder` | Mark as completed/incomplete |
 | `delete_reminder` | Delete a reminder |
+
+</details>
+
+<details>
+<summary><b>Advanced Features (4)</b> ✨ New in v0.3.0</summary>
+
+| Tool | Description |
+|------|-------------|
+| `search_events` | Search events by keyword in title, notes, or location |
+| `list_events_quick` | Quick shortcuts: `today`, `tomorrow`, `this_week`, `next_7_days`, etc. |
+| `create_events_batch` | Create multiple events at once |
+| `check_conflicts` | Check for overlapping events in a time range |
 
 </details>
 
@@ -157,6 +173,16 @@ claude
 "Delete the reminder about groceries"
 ```
 
+### Advanced Features (v0.3.0+)
+
+```
+"Search for events containing 'meeting'"
+"What do I have today?"
+"Show me this week's schedule"
+"Are there any conflicts if I schedule a meeting from 2-3 PM?"
+"Create 3 weekly team meetings for the next 3 weeks"
+```
+
 ---
 
 ## Supported Calendar Sources
@@ -195,6 +221,7 @@ Works with any calendar synced to macOS Calendar app:
 
 | Version | Changes |
 |---------|---------|
+| v0.3.0 | Advanced features: search, quick range, batch create, conflict check, timezone display |
 | v0.2.0 | Swift rewrite with full Reminders support |
 | v0.1.x | Python version (deprecated) |
 
