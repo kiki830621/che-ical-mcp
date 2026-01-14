@@ -320,7 +320,7 @@ class CheICalMCPServer {
             // Feature 4: Batch Create Events
             Tool(
                 name: "create_events_batch",
-                description: "Create multiple events at once. Returns results for each event.",
+                description: "PREFERRED: Create multiple events in a single call. Use this instead of calling create_event multiple times - it's faster and more reliable. Returns detailed results for each event.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
@@ -386,7 +386,7 @@ class CheICalMCPServer {
             // Feature 7: Move Events Batch
             Tool(
                 name: "move_events_batch",
-                description: "Move multiple events to another calendar. Events are copied to target calendar and deleted from source. Returns success/failure for each event.",
+                description: "PREFERRED: Move multiple events to another calendar in a single call. Use this instead of calling copy_event with delete_original multiple times - it's faster and more reliable. Returns detailed success/failure for each event.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
@@ -406,7 +406,7 @@ class CheICalMCPServer {
             // Feature 8: Delete Events Batch
             Tool(
                 name: "delete_events_batch",
-                description: "Delete multiple events at once. Returns success/failure count for each event. Much more efficient than calling delete_event multiple times.",
+                description: "PREFERRED: Delete multiple events in a single call. Use this instead of calling delete_event multiple times - it's faster and more reliable. Returns detailed success/failure counts.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([

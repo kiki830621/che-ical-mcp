@@ -6,6 +6,7 @@ actor EventKitManager {
     private let eventStore = EKEventStore()
     private var hasCalendarAccess = false
     private var hasReminderAccess = false
+    private var needsRefresh = false
 
     static let shared = EventKitManager()
 
@@ -47,6 +48,21 @@ actor EventKitManager {
                 throw EventKitError.accessDenied(type: "Reminders")
             }
         }
+    }
+
+    // MARK: - Refresh Management
+
+    /// Refresh EventKit sources if needed (called before read operations)
+    private func refreshIfNeeded() {
+        if needsRefresh {
+            eventStore.refreshSourcesIfNecessary()
+            needsRefresh = false
+        }
+    }
+
+    /// Mark that EventKit sources need to be refreshed (called after write operations)
+    private func markNeedsRefresh() {
+        needsRefresh = true
     }
 
     // MARK: - Calendars
@@ -123,6 +139,7 @@ actor EventKitManager {
         if entityType == .reminder || entityType == nil {
             try await requestReminderAccess()
         }
+        refreshIfNeeded()
 
         if let type = entityType {
             return eventStore.calendars(for: type)
@@ -156,6 +173,7 @@ actor EventKitManager {
         }
 
         try eventStore.saveCalendar(calendar, commit: true)
+        markNeedsRefresh()
         return calendar
     }
 
@@ -168,6 +186,7 @@ actor EventKitManager {
         }
 
         try eventStore.removeCalendar(calendar, commit: true)
+        markNeedsRefresh()
     }
 
     // MARK: - Events
@@ -179,6 +198,7 @@ actor EventKitManager {
         calendarSource: String? = nil
     ) async throws -> [EKEvent] {
         try await requestCalendarAccess()
+        refreshIfNeeded()
 
         var calendars: [EKCalendar]?
         if let name = calendarName {
@@ -237,6 +257,7 @@ actor EventKitManager {
         }
 
         try eventStore.save(event, span: .thisEvent)
+        markNeedsRefresh()
         return event
     }
 
@@ -296,6 +317,7 @@ actor EventKitManager {
         }
 
         try eventStore.save(event, span: .thisEvent)
+        markNeedsRefresh()
         return event
     }
 
@@ -307,6 +329,7 @@ actor EventKitManager {
         }
 
         try eventStore.remove(event, span: span)
+        markNeedsRefresh()
     }
 
     // MARK: - Search and Conflict Detection
@@ -328,6 +351,7 @@ actor EventKitManager {
         calendarSource: String? = nil
     ) async throws -> [EKEvent] {
         try await requestCalendarAccess()
+        refreshIfNeeded()
 
         // Default to a wide date range if not specified
         let searchStart = startDate ?? Date.distantPast
@@ -405,6 +429,7 @@ actor EventKitManager {
             }
         }
 
+        markNeedsRefresh()
         return BatchDeleteResult(
             successCount: successCount,
             failedCount: failures.count,
@@ -420,6 +445,7 @@ actor EventKitManager {
         toleranceMinutes: Int = 5
     ) async throws -> [DuplicatePair] {
         try await requestCalendarAccess()
+        refreshIfNeeded()
 
         // Get specified calendars or all
         var calendars: [EKCalendar]?
@@ -478,6 +504,7 @@ actor EventKitManager {
         excludeEventId: String? = nil
     ) async throws -> [EKEvent] {
         try await requestCalendarAccess()
+        refreshIfNeeded()
 
         var calendars: [EKCalendar]?
         if let name = calendarName {
@@ -546,6 +573,7 @@ actor EventKitManager {
             try eventStore.remove(sourceEvent, span: .thisEvent)
         }
 
+        markNeedsRefresh()
         return newEvent
     }
 
@@ -553,6 +581,7 @@ actor EventKitManager {
 
     func listReminders(completed: Bool? = nil, calendarName: String? = nil, calendarSource: String? = nil) async throws -> [EKReminder] {
         try await requestReminderAccess()
+        refreshIfNeeded()
 
         var calendars: [EKCalendar]?
         if let name = calendarName {
@@ -635,6 +664,7 @@ actor EventKitManager {
         }
 
         try eventStore.save(reminder, commit: true)
+        markNeedsRefresh()
         return reminder
     }
 
@@ -684,6 +714,7 @@ actor EventKitManager {
         }
 
         try eventStore.save(reminder, commit: true)
+        markNeedsRefresh()
         return reminder
     }
 
@@ -702,6 +733,7 @@ actor EventKitManager {
         }
 
         try eventStore.save(reminder, commit: true)
+        markNeedsRefresh()
         return reminder
     }
 
@@ -713,6 +745,7 @@ actor EventKitManager {
         }
 
         try eventStore.remove(reminder, commit: true)
+        markNeedsRefresh()
     }
 
     // MARK: - Helpers

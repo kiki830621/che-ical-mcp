@@ -21,3 +21,6 @@ wheels/
 mcpb/server/
 # Packed MCPB bundle
 *.mcpb
+
+# Private docs (not for public repo)
+docs/private/
