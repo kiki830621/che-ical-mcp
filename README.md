@@ -33,6 +33,19 @@
 
 ## Quick Start
 
+### Option A: Download Release (Recommended)
+
+```bash
+# Download the latest release
+curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o /usr/local/bin/che-ical-mcp
+chmod +x /usr/local/bin/che-ical-mcp
+
+# Add to Claude Code
+claude mcp add che-ical-mcp /usr/local/bin/che-ical-mcp
+```
+
+### Option B: Build from Source
+
 ```bash
 # Clone and build
 git clone https://github.com/kiki830621/che-ical-mcp.git
@@ -108,9 +121,19 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 ### Requirements
 
 - macOS 13.0+
-- Xcode Command Line Tools
+- Xcode Command Line Tools (only if building from source)
 
-### Step 1: Build
+### Step 1: Get the Binary
+
+#### Option A: Download from Release (Recommended)
+
+```bash
+# Download to /usr/local/bin
+curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o /usr/local/bin/che-ical-mcp
+chmod +x /usr/local/bin/che-ical-mcp
+```
+
+#### Option B: Build from Source
 
 ```bash
 git clone https://github.com/kiki830621/che-ical-mcp.git
@@ -206,6 +229,20 @@ Works with any calendar synced to macOS Calendar app:
 - CalDAV calendars
 - Local calendars
 
+### Same-Name Calendar Disambiguation (v0.6.0+)
+
+If you have calendars with the same name from different sources (e.g., "Work" in both iCloud and Google), use the `calendar_source` parameter:
+
+```
+"Create an event in my iCloud Work calendar"
+→ create_event(calendar_name: "Work", calendar_source: "iCloud", ...)
+
+"Show events from my Google Work calendar"
+→ list_events(calendar_name: "Work", calendar_source: "Google", ...)
+```
+
+If ambiguity is detected, the error message will list all available sources.
+
 ---
 
 ## Troubleshooting
@@ -221,10 +258,12 @@ Works with any calendar synced to macOS Calendar app:
 
 ## Technical Details
 
+- **Current Version**: v0.6.0
 - **Framework**: [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.10.0
 - **Calendar API**: EventKit (native macOS framework)
 - **Transport**: stdio
 - **Platform**: macOS 13.0+ (Ventura and later)
+- **Tools**: 20 tools for calendars, events, reminders, and advanced operations
 
 ---
 

@@ -33,6 +33,19 @@
 
 ## 快速開始
 
+### 方式 A：下載 Release（推薦）
+
+```bash
+# 下載最新版本
+curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o /usr/local/bin/che-ical-mcp
+chmod +x /usr/local/bin/che-ical-mcp
+
+# 加入 Claude Code
+claude mcp add che-ical-mcp /usr/local/bin/che-ical-mcp
+```
+
+### 方式 B：從原始碼編譯
+
 ```bash
 # 複製並編譯
 git clone https://github.com/kiki830621/che-ical-mcp.git
@@ -108,9 +121,19 @@ claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
 ### 系統需求
 
 - macOS 13.0+
-- Xcode 命令列工具
+- Xcode 命令列工具（僅從原始碼編譯時需要）
 
-### 步驟 1：編譯
+### 步驟 1：取得執行檔
+
+#### 方式 A：從 Release 下載（推薦）
+
+```bash
+# 下載到 /usr/local/bin
+curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o /usr/local/bin/che-ical-mcp
+chmod +x /usr/local/bin/che-ical-mcp
+```
+
+#### 方式 B：從原始碼編譯
 
 ```bash
 git clone https://github.com/kiki830621/che-ical-mcp.git
@@ -206,6 +229,20 @@ claude
 - CalDAV 行事曆
 - 本機行事曆
 
+### 同名日曆消歧義（v0.6.0+）
+
+如果你有來自不同來源的同名日曆（例如 iCloud 和 Google 都有「工作」日曆），可以使用 `calendar_source` 參數：
+
+```
+「在 iCloud 的工作日曆建立事件」
+→ create_event(calendar_name: "工作", calendar_source: "iCloud", ...)
+
+「顯示 Google 工作日曆的事件」
+→ list_events(calendar_name: "工作", calendar_source: "Google", ...)
+```
+
+如果偵測到歧義，錯誤訊息會列出所有可用的來源。
+
 ---
 
 ## 疑難排解
@@ -221,10 +258,12 @@ claude
 
 ## 技術細節
 
+- **目前版本**：v0.6.0
 - **框架**：[MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.10.0
 - **行事曆 API**：EventKit（原生 macOS 框架）
 - **傳輸**：stdio
 - **平台**：macOS 13.0+（Ventura 及更新版本）
+- **工具數量**：20 個工具，涵蓋行事曆、事件、提醒事項和進階操作
 
 ---
 
