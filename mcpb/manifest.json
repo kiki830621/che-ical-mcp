@@ -1,153 +1,56 @@
 {
+  "manifest_version": "0.3",
   "name": "che-ical-mcp",
+  "display_name": "macOS Calendar & Reminders",
   "version": "0.6.0",
-  "description": "macOS Calendar & Reminders integration with 20 tools. Native EventKit access for iCloud, Google, and Exchange calendars. Features include batch operations, conflict detection, duplicate finding, and multi-keyword search.",
+  "description": "Native EventKit integration for macOS Calendar and Reminders apps",
+  "long_description": "A powerful MCP server providing 20 tools for managing macOS Calendar events and Reminders. Features include batch operations, conflict detection, duplicate finding, multi-keyword search, and support for iCloud, Google, and Exchange calendars. Requires macOS 13.0 or later.",
   "author": {
     "name": "Che Cheng",
     "url": "https://github.com/kiki830621"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kiki830621/che-ical-mcp.git"
+  },
   "homepage": "https://github.com/kiki830621/che-ical-mcp",
-  "repository": "https://github.com/kiki830621/che-ical-mcp",
+  "support": "https://github.com/kiki830621/che-ical-mcp/issues",
+  "icon": "icon.png",
+  "keywords": ["calendar", "reminders", "eventkit", "macos", "tasks", "scheduling"],
   "license": "MIT",
-  "platforms": ["darwin"],
+  "privacy_policies": ["https://github.com/kiki830621/che-ical-mcp/blob/main/mcpb/PRIVACY.md"],
   "server": {
-    "type": "executable",
-    "entry_point": "server/CheICalMCP"
+    "type": "binary",
+    "entry_point": "server/CheICalMCP",
+    "mcp_config": {
+      "command": "${__dirname}/server/CheICalMCP",
+      "args": [],
+      "env": {}
+    }
   },
   "tools": [
-    {
-      "name": "list_calendars",
-      "description": "List all available calendars and reminder lists",
-      "annotations": { "readOnlyHint": true }
-    },
-    {
-      "name": "create_calendar",
-      "description": "Create a new calendar or reminder list",
-      "annotations": { "readOnlyHint": false }
-    },
-    {
-      "name": "delete_calendar",
-      "description": "Delete a calendar by its identifier",
-      "annotations": { "destructiveHint": true }
-    },
-    {
-      "name": "list_events",
-      "description": "List calendar events in a date range",
-      "annotations": { "readOnlyHint": true }
-    },
-    {
-      "name": "create_event",
-      "description": "Create a new calendar event with optional reminders",
-      "annotations": { "readOnlyHint": false }
-    },
-    {
-      "name": "update_event",
-      "description": "Update an existing calendar event",
-      "annotations": { "readOnlyHint": false }
-    },
-    {
-      "name": "delete_event",
-      "description": "Delete a calendar event",
-      "annotations": { "destructiveHint": true }
-    },
-    {
-      "name": "list_reminders",
-      "description": "List reminders from the Reminders app",
-      "annotations": { "readOnlyHint": true }
-    },
-    {
-      "name": "create_reminder",
-      "description": "Create a new reminder with optional due date",
-      "annotations": { "readOnlyHint": false }
-    },
-    {
-      "name": "update_reminder",
-      "description": "Update an existing reminder",
-      "annotations": { "readOnlyHint": false }
-    },
-    {
-      "name": "complete_reminder",
-      "description": "Mark a reminder as completed or incomplete",
-      "annotations": { "readOnlyHint": false }
-    },
-    {
-      "name": "delete_reminder",
-      "description": "Delete a reminder",
-      "annotations": { "destructiveHint": true }
-    },
-    {
-      "name": "search_events",
-      "description": "Search events by keyword(s) with AND/OR matching",
-      "annotations": { "readOnlyHint": true }
-    },
-    {
-      "name": "list_events_quick",
-      "description": "List events with quick time range shortcuts (today, tomorrow, this_week, etc.)",
-      "annotations": { "readOnlyHint": true }
-    },
-    {
-      "name": "create_events_batch",
-      "description": "Create multiple events at once",
-      "annotations": { "readOnlyHint": false }
-    },
-    {
-      "name": "check_conflicts",
-      "description": "Check for overlapping events in a time range",
-      "annotations": { "readOnlyHint": true }
-    },
-    {
-      "name": "copy_event",
-      "description": "Copy an event to another calendar (with optional move)",
-      "annotations": { "readOnlyHint": false }
-    },
-    {
-      "name": "move_events_batch",
-      "description": "Move multiple events to another calendar",
-      "annotations": { "readOnlyHint": false }
-    },
-    {
-      "name": "delete_events_batch",
-      "description": "Delete multiple events at once",
-      "annotations": { "destructiveHint": true }
-    },
-    {
-      "name": "find_duplicate_events",
-      "description": "Find duplicate events across calendars",
-      "annotations": { "readOnlyHint": true }
-    }
+    { "name": "list_calendars", "description": "List all available calendars and reminder lists" },
+    { "name": "create_calendar", "description": "Create a new calendar or reminder list" },
+    { "name": "delete_calendar", "description": "Delete a calendar by its identifier" },
+    { "name": "list_events", "description": "List calendar events in a date range" },
+    { "name": "create_event", "description": "Create a new calendar event with optional reminders" },
+    { "name": "update_event", "description": "Update an existing calendar event" },
+    { "name": "delete_event", "description": "Delete a calendar event" },
+    { "name": "list_reminders", "description": "List reminders from the Reminders app" },
+    { "name": "create_reminder", "description": "Create a new reminder with optional due date" },
+    { "name": "update_reminder", "description": "Update an existing reminder" },
+    { "name": "complete_reminder", "description": "Mark a reminder as completed or incomplete" },
+    { "name": "delete_reminder", "description": "Delete a reminder" },
+    { "name": "search_events", "description": "Search events by keyword(s) with AND/OR matching" },
+    { "name": "list_events_quick", "description": "List events with quick time range shortcuts (today, tomorrow, this_week, etc.)" },
+    { "name": "create_events_batch", "description": "Create multiple events at once" },
+    { "name": "check_conflicts", "description": "Check for overlapping events in a time range" },
+    { "name": "copy_event", "description": "Copy an event to another calendar (with optional move)" },
+    { "name": "move_events_batch", "description": "Move multiple events to another calendar" },
+    { "name": "delete_events_batch", "description": "Delete multiple events at once" },
+    { "name": "find_duplicate_events", "description": "Find duplicate events across calendars" }
   ],
-  "examples": [
-    {
-      "title": "List today's events",
-      "prompt": "What's on my calendar today?",
-      "tool": "list_events_quick",
-      "arguments": { "range": "today" }
-    },
-    {
-      "title": "Create a meeting",
-      "prompt": "Schedule a team meeting tomorrow at 2pm for 1 hour",
-      "tool": "create_event",
-      "arguments": {
-        "title": "Team Meeting",
-        "start_time": "2024-01-15T14:00:00",
-        "end_time": "2024-01-15T15:00:00"
-      }
-    },
-    {
-      "title": "Search for events",
-      "prompt": "Find all events containing 'project review'",
-      "tool": "search_events",
-      "arguments": { "keyword": "project review" }
-    }
-  ],
-  "permissions": {
-    "calendar": {
-      "required": true,
-      "reason": "Required to read and manage calendar events"
-    },
-    "reminders": {
-      "required": true,
-      "reason": "Required to read and manage reminders/tasks"
-    }
+  "compatibility": {
+    "platforms": ["darwin"]
   }
 }
