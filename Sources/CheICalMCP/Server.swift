@@ -30,7 +30,7 @@ class CheICalMCPServer {
         // Create server with tools capability
         server = Server(
             name: "che-ical-mcp",
-            version: "0.4.0",
+            version: "0.5.0",
             capabilities: .init(tools: .init())
         )
 
@@ -243,19 +243,28 @@ class CheICalMCPServer {
 
             // New Feature Tools
 
-            // Feature 2: Search Events
+            // Feature 2: Search Events (enhanced with multi-keyword support)
             Tool(
                 name: "search_events",
-                description: "Search events by keyword in title, notes, or location.",
+                description: "Search events by keyword(s) in title, notes, or location. Supports single keyword or multiple keywords with AND/OR matching. Without date range, searches all events (may be slow for large calendars).",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
-                        "keyword": .object(["type": .string("string"), "description": .string("Search keyword (case-insensitive)")]),
-                        "start_date": .object(["type": .string("string"), "description": .string("Optional start date in ISO8601 format")]),
-                        "end_date": .object(["type": .string("string"), "description": .string("Optional end date in ISO8601 format")]),
+                        "keyword": .object(["type": .string("string"), "description": .string("Single search keyword (case-insensitive). Use this OR keywords, not both.")]),
+                        "keywords": .object([
+                            "type": .string("array"),
+                            "items": .object(["type": .string("string")]),
+                            "description": .string("Multiple search keywords (use with match_mode). Example: [\"meeting\", \"project\"]")
+                        ]),
+                        "match_mode": .object([
+                            "type": .string("string"),
+                            "enum": .array([.string("any"), .string("all")]),
+                            "description": .string("'any' = OR (matches if ANY keyword found, default), 'all' = AND (matches only if ALL keywords found)")
+                        ]),
+                        "start_date": .object(["type": .string("string"), "description": .string("Optional start date in ISO8601 format to limit search range")]),
+                        "end_date": .object(["type": .string("string"), "description": .string("Optional end date in ISO8601 format to limit search range")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")])
-                    ]),
-                    "required": .array([.string("keyword")])
+                    ])
                 ])
             ),
 
@@ -344,7 +353,7 @@ class CheICalMCPServer {
             // Feature 7: Move Events Batch
             Tool(
                 name: "move_events_batch",
-                description: "Move multiple events to another calendar.",
+                description: "Move multiple events to another calendar. Events are copied to target calendar and deleted from source. Returns success/failure for each event.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
@@ -356,6 +365,57 @@ class CheICalMCPServer {
                         "target_calendar": .object(["type": .string("string"), "description": .string("Target calendar name to move events to")])
                     ]),
                     "required": .array([.string("event_ids"), .string("target_calendar")])
+                ])
+            ),
+
+            // Feature 8: Delete Events Batch
+            Tool(
+                name: "delete_events_batch",
+                description: "Delete multiple events at once. Returns success/failure count for each event. Much more efficient than calling delete_event multiple times.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "event_ids": .object([
+                            "type": .string("array"),
+                            "items": .object(["type": .string("string")]),
+                            "description": .string("Array of event identifiers to delete")
+                        ]),
+                        "span": .object([
+                            "type": .string("string"),
+                            "enum": .array([.string("this"), .string("future")]),
+                            "description": .string("For recurring events: 'this' (default) deletes only this occurrence, 'future' deletes this and all future occurrences")
+                        ])
+                    ]),
+                    "required": .array([.string("event_ids")])
+                ])
+            ),
+
+            // Feature 9: Find Duplicate Events
+            Tool(
+                name: "find_duplicate_events",
+                description: "Find duplicate events across calendars. Useful before merging calendars to avoid duplicates. Matches by title (case-insensitive) and time (with configurable tolerance).",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "calendar_names": .object([
+                            "type": .string("array"),
+                            "items": .object(["type": .string("string")]),
+                            "description": .string("Calendar names to check for duplicates. If empty or omitted, checks ALL calendars.")
+                        ]),
+                        "start_date": .object([
+                            "type": .string("string"),
+                            "description": .string("Start date in ISO8601 format (required)")
+                        ]),
+                        "end_date": .object([
+                            "type": .string("string"),
+                            "description": .string("End date in ISO8601 format (required)")
+                        ]),
+                        "tolerance_minutes": .object([
+                            "type": .string("integer"),
+                            "description": .string("Time tolerance in minutes for matching (default: 5). Events within this time difference are considered duplicates.")
+                        ])
+                    ]),
+                    "required": .array([.string("start_date"), .string("end_date")])
                 ])
             ),
         ]
@@ -434,6 +494,10 @@ class CheICalMCPServer {
             return try await handleCopyEvent(arguments: arguments)
         case "move_events_batch":
             return try await handleMoveEventsBatch(arguments: arguments)
+        case "delete_events_batch":
+            return try await handleDeleteEventsBatch(arguments: arguments)
+        case "find_duplicate_events":
+            return try await handleFindDuplicateEvents(arguments: arguments)
 
         default:
             throw ToolError.unknownTool(name)
@@ -720,18 +784,29 @@ class CheICalMCPServer {
 
     // MARK: - New Feature Handlers
 
-    /// Feature 2: Search events by keyword
+    /// Feature 2: Search events by keyword(s)
     private func handleSearchEvents(arguments: [String: Value]) async throws -> String {
-        guard let keyword = arguments["keyword"]?.stringValue else {
-            throw ToolError.invalidParameter("keyword is required")
+        // Support both single keyword and multiple keywords
+        var keywords: [String] = []
+
+        if let keywordsArray = arguments["keywords"]?.arrayValue {
+            keywords = keywordsArray.compactMap { $0.stringValue }
+        } else if let keyword = arguments["keyword"]?.stringValue {
+            keywords = [keyword]
         }
 
+        if keywords.isEmpty {
+            throw ToolError.invalidParameter("Either 'keyword' or 'keywords' is required")
+        }
+
+        let matchMode = arguments["match_mode"]?.stringValue ?? "any"
         let startDate = arguments["start_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
         let endDate = arguments["end_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
         let calendarName = arguments["calendar_name"]?.stringValue
 
         let events = try await eventKitManager.searchEvents(
-            keyword: keyword,
+            keywords: keywords,
+            matchMode: matchMode,
             startDate: startDate,
             endDate: endDate,
             calendarName: calendarName
@@ -754,7 +829,14 @@ class CheICalMCPServer {
             if let url = event.url { dict["url"] = url.absoluteString }
             return dict
         }
-        return formatJSON(result)
+
+        let response: [String: Any] = [
+            "keywords": keywords,
+            "match_mode": matchMode,
+            "result_count": events.count,
+            "events": result
+        ]
+        return formatJSON(response)
     }
 
     /// Feature 3: List events with quick time range
@@ -989,6 +1071,106 @@ class CheICalMCPServer {
             "failed": ids.count - successCount,
             "target_calendar": targetCalendar,
             "results": results
+        ]
+        return formatJSON(response)
+    }
+
+    /// Feature 8: Delete multiple events at once
+    private func handleDeleteEventsBatch(arguments: [String: Value]) async throws -> String {
+        guard let eventIdsArray = arguments["event_ids"]?.arrayValue else {
+            throw ToolError.invalidParameter("event_ids array is required")
+        }
+
+        let eventIds = eventIdsArray.compactMap { $0.stringValue }
+        if eventIds.isEmpty {
+            throw ToolError.invalidParameter("event_ids must contain at least one event ID")
+        }
+
+        let spanStr = arguments["span"]?.stringValue ?? "this"
+        let span: EKSpan = spanStr == "future" ? .futureEvents : .thisEvent
+
+        let result = try await eventKitManager.deleteEventsBatch(
+            identifiers: eventIds,
+            span: span
+        )
+
+        var response: [String: Any] = [
+            "total": eventIds.count,
+            "succeeded": result.successCount,
+            "failed": result.failedCount,
+            "span": spanStr
+        ]
+
+        if !result.failures.isEmpty {
+            response["failures"] = result.failures.map { failure -> [String: String] in
+                ["event_id": failure.identifier, "error": failure.error]
+            }
+        }
+
+        return formatJSON(response)
+    }
+
+    /// Feature 9: Find duplicate events across calendars
+    private func handleFindDuplicateEvents(arguments: [String: Value]) async throws -> String {
+        guard let startStr = arguments["start_date"]?.stringValue,
+              let startDate = dateFormatter.date(from: startStr)
+        else {
+            throw ToolError.invalidParameter("start_date must be a valid ISO8601 date")
+        }
+        guard let endStr = arguments["end_date"]?.stringValue,
+              let endDate = dateFormatter.date(from: endStr)
+        else {
+            throw ToolError.invalidParameter("end_date must be a valid ISO8601 date")
+        }
+
+        var calendarNames: [String]?
+        if let namesArray = arguments["calendar_names"]?.arrayValue {
+            calendarNames = namesArray.compactMap { $0.stringValue }
+            if calendarNames?.isEmpty == true {
+                calendarNames = nil
+            }
+        }
+
+        let toleranceMinutes = arguments["tolerance_minutes"]?.intValue ?? 5
+
+        let duplicates = try await eventKitManager.findDuplicateEvents(
+            calendarNames: calendarNames,
+            startDate: startDate,
+            endDate: endDate,
+            toleranceMinutes: toleranceMinutes
+        )
+
+        let result = duplicates.map { pair -> [String: Any] in
+            [
+                "event1": [
+                    "id": pair.event1Id,
+                    "title": pair.event1Title,
+                    "calendar": pair.event1Calendar,
+                    "start_date": dateFormatter.string(from: pair.event1StartDate),
+                    "start_date_local": localDateFormatter.string(from: pair.event1StartDate)
+                ],
+                "event2": [
+                    "id": pair.event2Id,
+                    "title": pair.event2Title,
+                    "calendar": pair.event2Calendar,
+                    "start_date": dateFormatter.string(from: pair.event2StartDate),
+                    "start_date_local": localDateFormatter.string(from: pair.event2StartDate)
+                ],
+                "time_difference_seconds": pair.timeDifferenceSeconds
+            ]
+        }
+
+        let response: [String: Any] = [
+            "search_range": [
+                "start": dateFormatter.string(from: startDate),
+                "start_local": localDateFormatter.string(from: startDate),
+                "end": dateFormatter.string(from: endDate),
+                "end_local": localDateFormatter.string(from: endDate)
+            ],
+            "calendars_checked": calendarNames ?? ["all calendars"],
+            "tolerance_minutes": toleranceMinutes,
+            "duplicate_count": duplicates.count,
+            "duplicates": result
         ]
         return formatJSON(response)
     }

@@ -17,7 +17,8 @@
 |---------|---------------------|--------------|
 | Calendar Events | Yes | Yes |
 | **Reminders/Tasks** | No | **Yes** |
-| **Search Events** | No | **Yes** |
+| **Multi-keyword Search** | No | **Yes** |
+| **Duplicate Detection** | No | **Yes** |
 | **Conflict Detection** | No | **Yes** |
 | **Batch Operations** | No | **Yes** |
 | **Local Timezone** | No | **Yes** |
@@ -45,7 +46,7 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 
 ---
 
-## All 18 Tools
+## All 20 Tools
 
 <details>
 <summary><b>Calendars (3)</b></summary>
@@ -84,16 +85,18 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 </details>
 
 <details>
-<summary><b>Advanced Features (6)</b> ✨ New in v0.3.0+</summary>
+<summary><b>Advanced Features (8)</b> ✨ New in v0.3.0+</summary>
 
 | Tool | Description |
 |------|-------------|
-| `search_events` | Search events by keyword in title, notes, or location |
+| `search_events` | Search events by keyword(s) with AND/OR matching |
 | `list_events_quick` | Quick shortcuts: `today`, `tomorrow`, `this_week`, `next_7_days`, etc. |
 | `create_events_batch` | Create multiple events at once |
 | `check_conflicts` | Check for overlapping events in a time range |
 | `copy_event` | Copy an event to another calendar (with optional move) |
 | `move_events_batch` | Move multiple events to another calendar |
+| `delete_events_batch` | Delete multiple events at once (v0.5.0) |
+| `find_duplicate_events` | Find duplicate events across calendars (v0.5.0) |
 
 </details>
 
@@ -179,12 +182,15 @@ claude
 
 ```
 "Search for events containing 'meeting'"
+"Search for events with both 'project' AND 'review'"
 "What do I have today?"
 "Show me this week's schedule"
 "Are there any conflicts if I schedule a meeting from 2-3 PM?"
 "Create 3 weekly team meetings for the next 3 weeks"
 "Copy the dentist appointment to my Work calendar"
 "Move all events from 'Old Calendar' to 'New Calendar'"
+"Delete all the cancelled events"
+"Find duplicate events between 'IDOL' and 'Idol' calendars"
 ```
 
 ---
@@ -225,6 +231,7 @@ Works with any calendar synced to macOS Calendar app:
 
 | Version | Changes |
 |---------|---------|
+| v0.5.0 | Batch delete, duplicate detection, multi-keyword search, improved permission errors, PRIVACY.md |
 | v0.4.0 | Copy/move events: `copy_event`, `move_events_batch` |
 | v0.3.0 | Advanced features: search, quick range, batch create, conflict check, timezone display |
 | v0.2.0 | Swift rewrite with full Reminders support |

@@ -251,9 +251,16 @@ actor EventKitManager {
 
     // MARK: - Search and Conflict Detection
 
-    /// Search events by keyword in title, notes, or location
+    /// Search events by keyword(s) in title, notes, or location
+    /// - Parameters:
+    ///   - keywords: Array of keywords to search for
+    ///   - matchMode: "any" (OR) or "all" (AND)
+    ///   - startDate: Optional start date for search range
+    ///   - endDate: Optional end date for search range
+    ///   - calendarName: Optional calendar name filter
     func searchEvents(
-        keyword: String,
+        keywords: [String],
+        matchMode: String = "any",
         startDate: Date? = nil,
         endDate: Date? = nil,
         calendarName: String? = nil
@@ -276,20 +283,130 @@ actor EventKitManager {
         let predicate = eventStore.predicateForEvents(withStart: searchStart, end: searchEnd, calendars: calendars)
         let allEvents = eventStore.events(matching: predicate)
 
-        // Filter by keyword (case-insensitive)
-        let lowercasedKeyword = keyword.lowercased()
+        // Lowercase all keywords
+        let lowercasedKeywords = keywords.map { $0.lowercased() }
+
         return allEvents.filter { event in
-            if let title = event.title?.lowercased(), title.contains(lowercasedKeyword) {
-                return true
+            // Combine searchable text
+            let searchableText = [
+                event.title?.lowercased(),
+                event.notes?.lowercased(),
+                event.location?.lowercased()
+            ].compactMap { $0 }.joined(separator: " ")
+
+            if matchMode == "all" {
+                // AND mode: all keywords must match
+                return lowercasedKeywords.allSatisfy { searchableText.contains($0) }
+            } else {
+                // OR mode (default): any keyword matches
+                return lowercasedKeywords.contains { searchableText.contains($0) }
             }
-            if let notes = event.notes?.lowercased(), notes.contains(lowercasedKeyword) {
-                return true
-            }
-            if let location = event.location?.lowercased(), location.contains(lowercasedKeyword) {
-                return true
-            }
-            return false
         }
+    }
+
+    /// Backward-compatible single keyword search
+    func searchEvents(
+        keyword: String,
+        startDate: Date? = nil,
+        endDate: Date? = nil,
+        calendarName: String? = nil
+    ) async throws -> [EKEvent] {
+        return try await searchEvents(
+            keywords: [keyword],
+            matchMode: "any",
+            startDate: startDate,
+            endDate: endDate,
+            calendarName: calendarName
+        )
+    }
+
+    // MARK: - Batch Operations
+
+    /// Delete multiple events at once
+    func deleteEventsBatch(
+        identifiers: [String],
+        span: EKSpan = .thisEvent
+    ) async throws -> BatchDeleteResult {
+        try await requestCalendarAccess()
+
+        var successCount = 0
+        var failures: [(String, String)] = []
+
+        for id in identifiers {
+            do {
+                guard let event = eventStore.event(withIdentifier: id) else {
+                    failures.append((id, "Event not found"))
+                    continue
+                }
+                try eventStore.remove(event, span: span)
+                successCount += 1
+            } catch {
+                failures.append((id, error.localizedDescription))
+            }
+        }
+
+        return BatchDeleteResult(
+            successCount: successCount,
+            failedCount: failures.count,
+            failures: failures
+        )
+    }
+
+    /// Find duplicate events across calendars
+    func findDuplicateEvents(
+        calendarNames: [String]?,
+        startDate: Date,
+        endDate: Date,
+        toleranceMinutes: Int = 5
+    ) async throws -> [DuplicatePair] {
+        try await requestCalendarAccess()
+
+        // Get specified calendars or all
+        var calendars: [EKCalendar]?
+        if let names = calendarNames, !names.isEmpty {
+            let allCalendars = eventStore.calendars(for: .event)
+            calendars = allCalendars.filter { names.contains($0.title) }
+        }
+
+        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: calendars)
+        let events = eventStore.events(matching: predicate)
+
+        var duplicates: [DuplicatePair] = []
+        let tolerance = TimeInterval(toleranceMinutes * 60)
+
+        for i in 0..<events.count {
+            for j in (i + 1)..<events.count {
+                let e1 = events[i]
+                let e2 = events[j]
+
+                // Skip if same calendar
+                if e1.calendar.calendarIdentifier == e2.calendar.calendarIdentifier { continue }
+
+                // Compare titles (case-insensitive)
+                guard let t1 = e1.title?.lowercased(), let t2 = e2.title?.lowercased(),
+                      t1 == t2 else { continue }
+
+                // Compare times with tolerance
+                let startDiff = abs(e1.startDate.timeIntervalSince(e2.startDate))
+                let endDiff = abs(e1.endDate.timeIntervalSince(e2.endDate))
+
+                if startDiff <= tolerance && endDiff <= tolerance {
+                    duplicates.append(DuplicatePair(
+                        event1Id: e1.eventIdentifier ?? "",
+                        event1Title: e1.title ?? "",
+                        event1Calendar: e1.calendar.title,
+                        event1StartDate: e1.startDate,
+                        event2Id: e2.eventIdentifier ?? "",
+                        event2Title: e2.title ?? "",
+                        event2Calendar: e2.calendar.title,
+                        event2StartDate: e2.startDate,
+                        timeDifferenceSeconds: Int(startDiff)
+                    ))
+                }
+            }
+        }
+
+        return duplicates
     }
 
     /// Check for events that overlap with the given time range
@@ -628,7 +745,12 @@ enum EventKitError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .accessDenied(let type):
-            return "\(type) access denied. Please grant permission in System Settings > Privacy & Security > \(type)"
+            return """
+            \(type) access denied. Please grant permission:
+            1. Open System Settings → Privacy & Security → \(type)
+            2. Enable access for the MCP server or Terminal
+            3. Restart Claude Desktop/Code
+            """
         case .calendarNotFound(let id):
             return "Calendar not found: \(id)"
         case .eventNotFound(let id):
@@ -637,4 +759,24 @@ enum EventKitError: LocalizedError {
             return "Reminder not found: \(id)"
         }
     }
+}
+
+// MARK: - Batch Operation Results
+
+struct BatchDeleteResult {
+    let successCount: Int
+    let failedCount: Int
+    let failures: [(identifier: String, error: String)]
+}
+
+struct DuplicatePair {
+    let event1Id: String
+    let event1Title: String
+    let event1Calendar: String
+    let event1StartDate: Date
+    let event2Id: String
+    let event2Title: String
+    let event2Calendar: String
+    let event2StartDate: Date
+    let timeDifferenceSeconds: Int
 }

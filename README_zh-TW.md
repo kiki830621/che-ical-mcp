@@ -17,7 +17,8 @@
 |------|----------------|--------------|
 | 行事曆事件 | 有 | 有 |
 | **提醒事項/任務** | 無 | **有** |
-| **搜尋事件** | 無 | **有** |
+| **多關鍵字搜尋** | 無 | **有** |
+| **重複事件偵測** | 無 | **有** |
 | **衝突檢測** | 無 | **有** |
 | **批次操作** | 無 | **有** |
 | **本地時區** | 無 | **有** |
@@ -45,7 +46,7 @@ claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
 
 ---
 
-## 全部 18 個工具
+## 全部 20 個工具
 
 <details>
 <summary><b>行事曆 (3)</b></summary>
@@ -84,16 +85,18 @@ claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
 </details>
 
 <details>
-<summary><b>進階功能 (6)</b> ✨ v0.3.0+ 新增</summary>
+<summary><b>進階功能 (8)</b> ✨ v0.3.0+ 新增</summary>
 
 | 工具 | 說明 |
 |------|------|
-| `search_events` | 依關鍵字搜尋事件（標題、備註、地點） |
+| `search_events` | 多關鍵字搜尋事件，支援 AND/OR 匹配 |
 | `list_events_quick` | 快速捷徑：`today`、`tomorrow`、`this_week`、`next_7_days` 等 |
 | `create_events_batch` | 一次建立多個事件 |
 | `check_conflicts` | 檢查指定時間範圍是否有重疊事件 |
 | `copy_event` | 複製事件到另一個日曆（可選擇移動） |
 | `move_events_batch` | 批次移動事件到另一個日曆 |
+| `delete_events_batch` | 批次刪除多個事件（v0.5.0） |
+| `find_duplicate_events` | 跨日曆查找重複事件（v0.5.0） |
 
 </details>
 
@@ -179,12 +182,15 @@ claude
 
 ```
 「搜尋包含『會議』的事件」
+「搜尋同時包含『專案』和『審查』的事件」
 「今天有什麼行程？」
 「顯示這週的行程」
 「如果我在下午 2-3 點安排會議，會有衝突嗎？」
 「幫我建立接下來 3 週的週會」
 「把牙醫預約複製到工作行事曆」
 「把舊行事曆的所有事件移到新行事曆」
+「刪除所有已取消的事件」
+「找出『IDOL』和『Idol』行事曆中的重複事件」
 ```
 
 ---
@@ -225,6 +231,7 @@ claude
 
 | 版本 | 變更 |
 |------|------|
+| v0.5.0 | 批次刪除、重複偵測、多關鍵字搜尋、改善權限錯誤、新增 PRIVACY.md |
 | v0.4.0 | 事件複製/移動：`copy_event`、`move_events_batch` |
 | v0.3.0 | 進階功能：搜尋、快速範圍、批次建立、衝突檢查、時區顯示 |
 | v0.2.0 | Swift 重寫，完整支援提醒事項 |
