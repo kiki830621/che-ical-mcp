@@ -13,9 +13,10 @@
 ```
 Introducing che-ical-mcp - macOS Calendar & Reminders MCP server
 
-12 tools for complete calendar and task management:
-- Calendar events (CRUD)
+18 tools for complete calendar and task management:
+- Calendar events (CRUD) + Search & Batch ops
 - Reminders/Tasks support (unique!)
+- Conflict detection, Copy/Move events
 - iCloud, Google Calendar, Outlook
 
 Built natively in Swift with EventKit
@@ -34,16 +35,16 @@ Unlike other calendar MCPs, this one includes FULL Reminders support!
 
 https://github.com/kiki830621/che-ical-mcp
 
-2/4 12 tools available:
+2/4 18 tools available:
 
-Calendar:
-- list_calendars, create_calendar, delete_calendar
+Calendar: list, create, delete
+Events: list, create, update, delete
+Reminders: list, create, update, complete, delete
 
-Events:
-- list_events, create_event, update_event, delete_event
-
-Reminders:
-- list_reminders, create_reminder, update_reminder, complete_reminder, delete_reminder
+Advanced (v0.3+):
+- search_events, list_events_quick
+- create_events_batch, check_conflicts
+- copy_event, move_events_batch
 
 3/4 Works with all your calendars:
 - iCloud Calendar
@@ -65,7 +66,7 @@ macOS 13.0+ required
 
 ### Reddit Post (r/ClaudeAI)
 
-**Title**: I built a macOS Calendar & Reminders MCP - 12 tools including full Reminders support
+**Title**: I built a macOS Calendar & Reminders MCP - 18 tools including search, batch ops, and full Reminders support
 
 **Body**:
 ```
@@ -73,7 +74,7 @@ Hey everyone!
 
 I've created an MCP server for macOS Calendar and Reminders.
 
-**che-ical-mcp** provides 12 tools covering both calendar events AND reminders/tasks.
+**che-ical-mcp** provides 18 tools covering calendar events, reminders/tasks, plus advanced features like search, batch operations, and conflict detection.
 
 ### What makes it different?
 
@@ -113,7 +114,7 @@ Would love any feedback!
 ```
 For anyone using Claude AI with macOS, I built an MCP server that provides full access to Calendar and Reminders.
 
-**che-ical-mcp** includes 12 tools:
+**che-ical-mcp** includes 18 tools:
 
 Calendar Management:
 - List, create, delete calendars
@@ -142,7 +143,7 @@ Built with Swift and EventKit - happy to answer any questions!
 
 **Body**:
 ```
-I built an MCP (Model Context Protocol) server for macOS Calendar and Reminders with 12 tools.
+I built an MCP (Model Context Protocol) server for macOS Calendar and Reminders with 18 tools.
 
 GitHub: https://github.com/kiki830621/che-ical-mcp
 
@@ -170,7 +171,7 @@ Feedback welcome!
 
 ### Description (已設定)
 ```
-macOS Calendar & Reminders MCP server with 12 tools - Swift native EventKit integration for Claude AI
+macOS Calendar & Reminders MCP server with 18 tools - Swift native EventKit integration for Claude AI
 ```
 
 ### Topics (已設定)
