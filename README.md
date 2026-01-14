@@ -45,7 +45,7 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 
 ---
 
-## All 16 Tools
+## All 18 Tools
 
 <details>
 <summary><b>Calendars (3)</b></summary>
@@ -84,7 +84,7 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 </details>
 
 <details>
-<summary><b>Advanced Features (4)</b> ✨ New in v0.3.0</summary>
+<summary><b>Advanced Features (6)</b> ✨ New in v0.3.0+</summary>
 
 | Tool | Description |
 |------|-------------|
@@ -92,6 +92,8 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 | `list_events_quick` | Quick shortcuts: `today`, `tomorrow`, `this_week`, `next_7_days`, etc. |
 | `create_events_batch` | Create multiple events at once |
 | `check_conflicts` | Check for overlapping events in a time range |
+| `copy_event` | Copy an event to another calendar (with optional move) |
+| `move_events_batch` | Move multiple events to another calendar |
 
 </details>
 
@@ -181,6 +183,8 @@ claude
 "Show me this week's schedule"
 "Are there any conflicts if I schedule a meeting from 2-3 PM?"
 "Create 3 weekly team meetings for the next 3 weeks"
+"Copy the dentist appointment to my Work calendar"
+"Move all events from 'Old Calendar' to 'New Calendar'"
 ```
 
 ---
@@ -221,6 +225,7 @@ Works with any calendar synced to macOS Calendar app:
 
 | Version | Changes |
 |---------|---------|
+| v0.4.0 | Copy/move events: `copy_event`, `move_events_batch` |
 | v0.3.0 | Advanced features: search, quick range, batch create, conflict check, timezone display |
 | v0.2.0 | Swift rewrite with full Reminders support |
 | v0.1.x | Python version (deprecated) |

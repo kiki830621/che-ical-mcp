@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-01-14
+
+### Added
+- **Copy event** (`copy_event`): Copy an event to another calendar
+  - Option to delete original (effectively a move operation)
+  - Preserves all event properties: title, time, location, notes, URL, alarms
+- **Batch move** (`move_events_batch`): Move multiple events to another calendar at once
+  - Useful for migrating events between calendars
+
+### Changed
+- Tool count increased from 16 to 18
+
 ## [0.3.0] - 2026-01-14
 
 ### Added

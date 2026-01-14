@@ -324,6 +324,59 @@ actor EventKitManager {
         }
     }
 
+    /// Copy an event to another calendar, optionally deleting the original
+    func copyEvent(
+        identifier: String,
+        toCalendarName: String,
+        deleteOriginal: Bool = false
+    ) async throws -> EKEvent {
+        try await requestCalendarAccess()
+
+        // Find the source event
+        guard let sourceEvent = eventStore.event(withIdentifier: identifier) else {
+            throw EventKitError.eventNotFound(identifier: identifier)
+        }
+
+        // Find the target calendar
+        let allCalendars = eventStore.calendars(for: .event)
+        guard let targetCalendar = allCalendars.first(where: { $0.title == toCalendarName }) else {
+            throw EventKitError.calendarNotFound(identifier: toCalendarName)
+        }
+
+        // Check if target calendar allows modifications
+        guard targetCalendar.allowsContentModifications else {
+            throw EventKitError.calendarNotFound(identifier: "\(toCalendarName) (read-only)")
+        }
+
+        // Create a new event with the same properties
+        let newEvent = EKEvent(eventStore: eventStore)
+        newEvent.title = sourceEvent.title
+        newEvent.startDate = sourceEvent.startDate
+        newEvent.endDate = sourceEvent.endDate
+        newEvent.notes = sourceEvent.notes
+        newEvent.location = sourceEvent.location
+        newEvent.url = sourceEvent.url
+        newEvent.isAllDay = sourceEvent.isAllDay
+        newEvent.calendar = targetCalendar
+
+        // Copy alarms
+        if let alarms = sourceEvent.alarms {
+            for alarm in alarms {
+                newEvent.addAlarm(EKAlarm(relativeOffset: alarm.relativeOffset))
+            }
+        }
+
+        // Save the new event
+        try eventStore.save(newEvent, span: .thisEvent)
+
+        // Optionally delete the original
+        if deleteOriginal {
+            try eventStore.remove(sourceEvent, span: .thisEvent)
+        }
+
+        return newEvent
+    }
+
     // MARK: - Reminders
 
     func listReminders(completed: Bool? = nil, calendarName: String? = nil) async throws -> [EKReminder] {

@@ -30,7 +30,7 @@ class CheICalMCPServer {
         // Create server with tools capability
         server = Server(
             name: "che-ical-mcp",
-            version: "0.3.0",
+            version: "0.4.0",
             capabilities: .init(tools: .init())
         )
 
@@ -325,6 +325,39 @@ class CheICalMCPServer {
                     "required": .array([.string("start_time"), .string("end_time")])
                 ])
             ),
+
+            // Feature 6: Copy Event
+            Tool(
+                name: "copy_event",
+                description: "Copy an event to another calendar. The original event is preserved.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "event_id": .object(["type": .string("string"), "description": .string("The event identifier to copy")]),
+                        "target_calendar": .object(["type": .string("string"), "description": .string("Target calendar name to copy to")]),
+                        "delete_original": .object(["type": .string("boolean"), "description": .string("If true, delete the original event after copying (effectively a move)")])
+                    ]),
+                    "required": .array([.string("event_id"), .string("target_calendar")])
+                ])
+            ),
+
+            // Feature 7: Move Events Batch
+            Tool(
+                name: "move_events_batch",
+                description: "Move multiple events to another calendar.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "event_ids": .object([
+                            "type": .string("array"),
+                            "items": .object(["type": .string("string")]),
+                            "description": .string("Array of event IDs to move")
+                        ]),
+                        "target_calendar": .object(["type": .string("string"), "description": .string("Target calendar name to move events to")])
+                    ]),
+                    "required": .array([.string("event_ids"), .string("target_calendar")])
+                ])
+            ),
         ]
     }
 
@@ -397,6 +430,10 @@ class CheICalMCPServer {
             return try await handleCreateEventsBatch(arguments: arguments)
         case "check_conflicts":
             return try await handleCheckConflicts(arguments: arguments)
+        case "copy_event":
+            return try await handleCopyEvent(arguments: arguments)
+        case "move_events_batch":
+            return try await handleMoveEventsBatch(arguments: arguments)
 
         default:
             throw ToolError.unknownTool(name)
@@ -882,6 +919,76 @@ class CheICalMCPServer {
                 "end_local": localDateFormatter.string(from: endDate)
             ],
             "conflicts": result
+        ]
+        return formatJSON(response)
+    }
+
+    /// Feature 6: Copy event to another calendar
+    private func handleCopyEvent(arguments: [String: Value]) async throws -> String {
+        guard let eventId = arguments["event_id"]?.stringValue else {
+            throw ToolError.invalidParameter("event_id is required")
+        }
+        guard let targetCalendar = arguments["target_calendar"]?.stringValue else {
+            throw ToolError.invalidParameter("target_calendar is required")
+        }
+
+        let deleteOriginal = arguments["delete_original"]?.boolValue ?? false
+
+        let newEvent = try await eventKitManager.copyEvent(
+            identifier: eventId,
+            toCalendarName: targetCalendar,
+            deleteOriginal: deleteOriginal
+        )
+
+        let action = deleteOriginal ? "Moved" : "Copied"
+        return "\(action) event '\(newEvent.title ?? "")' to calendar '\(targetCalendar)' (New ID: \(newEvent.eventIdentifier ?? "unknown"))"
+    }
+
+    /// Feature 7: Move multiple events to another calendar
+    private func handleMoveEventsBatch(arguments: [String: Value]) async throws -> String {
+        guard let eventIds = arguments["event_ids"]?.arrayValue else {
+            throw ToolError.invalidParameter("event_ids array is required")
+        }
+        guard let targetCalendar = arguments["target_calendar"]?.stringValue else {
+            throw ToolError.invalidParameter("target_calendar is required")
+        }
+
+        let ids = eventIds.compactMap { $0.stringValue }
+        if ids.isEmpty {
+            throw ToolError.invalidParameter("event_ids must contain at least one event ID")
+        }
+
+        var results: [[String: Any]] = []
+
+        for eventId in ids {
+            do {
+                let event = try await eventKitManager.copyEvent(
+                    identifier: eventId,
+                    toCalendarName: targetCalendar,
+                    deleteOriginal: true  // Move = copy + delete original
+                )
+                results.append([
+                    "event_id": eventId,
+                    "success": true,
+                    "new_event_id": event.eventIdentifier ?? "",
+                    "title": event.title ?? ""
+                ])
+            } catch {
+                results.append([
+                    "event_id": eventId,
+                    "success": false,
+                    "error": error.localizedDescription
+                ])
+            }
+        }
+
+        let successCount = results.filter { ($0["success"] as? Bool) == true }.count
+        let response: [String: Any] = [
+            "total": ids.count,
+            "succeeded": successCount,
+            "failed": ids.count - successCount,
+            "target_calendar": targetCalendar,
+            "results": results
         ]
         return formatJSON(response)
     }

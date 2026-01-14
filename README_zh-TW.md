@@ -45,7 +45,7 @@ claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
 
 ---
 
-## 全部 16 個工具
+## 全部 18 個工具
 
 <details>
 <summary><b>行事曆 (3)</b></summary>
@@ -84,7 +84,7 @@ claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
 </details>
 
 <details>
-<summary><b>進階功能 (4)</b> ✨ v0.3.0 新增</summary>
+<summary><b>進階功能 (6)</b> ✨ v0.3.0+ 新增</summary>
 
 | 工具 | 說明 |
 |------|------|
@@ -92,6 +92,8 @@ claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
 | `list_events_quick` | 快速捷徑：`today`、`tomorrow`、`this_week`、`next_7_days` 等 |
 | `create_events_batch` | 一次建立多個事件 |
 | `check_conflicts` | 檢查指定時間範圍是否有重疊事件 |
+| `copy_event` | 複製事件到另一個日曆（可選擇移動） |
+| `move_events_batch` | 批次移動事件到另一個日曆 |
 
 </details>
 
@@ -181,6 +183,8 @@ claude
 「顯示這週的行程」
 「如果我在下午 2-3 點安排會議，會有衝突嗎？」
 「幫我建立接下來 3 週的週會」
+「把牙醫預約複製到工作行事曆」
+「把舊行事曆的所有事件移到新行事曆」
 ```
 
 ---
@@ -221,6 +225,7 @@ claude
 
 | 版本 | 變更 |
 |------|------|
+| v0.4.0 | 事件複製/移動：`copy_event`、`move_events_batch` |
 | v0.3.0 | 進階功能：搜尋、快速範圍、批次建立、衝突檢查、時區顯示 |
 | v0.2.0 | Swift 重寫，完整支援提醒事項 |
 | v0.1.x | Python 版本（已棄用） |
