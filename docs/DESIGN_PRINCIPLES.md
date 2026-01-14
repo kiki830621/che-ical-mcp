@@ -1,4 +1,4 @@
-# che-ical-mcp Design Principles
+ㄋ# che-ical-mcp Design Principles
 
 This document outlines the design principles that guide the development of che-ical-mcp. These principles are adapted from the NSQL project's foundational rules.
 
