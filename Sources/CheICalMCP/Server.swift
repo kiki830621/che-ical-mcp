@@ -61,7 +61,8 @@ class CheICalMCPServer {
                             "description": .string("Filter by type: 'event' or 'reminder'. If not provided, returns all calendars.")
                         ])
                     ])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: true, openWorldHint: false)
             ),
             Tool(
                 name: "create_calendar",
@@ -83,7 +84,8 @@ class CheICalMCPServer {
                         ])
                     ]),
                     "required": .array([.string("title"), .string("type")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
             ),
             Tool(
                 name: "delete_calendar",
@@ -97,7 +99,8 @@ class CheICalMCPServer {
                         ])
                     ]),
                     "required": .array([.string("id")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: true, openWorldHint: false)
             ),
 
             // Event Tools
@@ -125,7 +128,8 @@ class CheICalMCPServer {
                         ])
                     ]),
                     "required": .array([.string("start_date"), .string("end_date")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: true, openWorldHint: false)
             ),
             Tool(
                 name: "create_event",
@@ -149,7 +153,8 @@ class CheICalMCPServer {
                         ])
                     ]),
                     "required": .array([.string("title"), .string("start_time"), .string("end_time")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
             ),
             Tool(
                 name: "update_event",
@@ -167,7 +172,8 @@ class CheICalMCPServer {
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")])
                     ]),
                     "required": .array([.string("event_id")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
             ),
             Tool(
                 name: "delete_event",
@@ -179,7 +185,8 @@ class CheICalMCPServer {
                         "span": .object(["type": .string("string"), "description": .string("For recurring events: 'this' or 'future'")])
                     ]),
                     "required": .array([.string("event_id")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: true, openWorldHint: false)
             ),
 
             // Reminder Tools
@@ -193,7 +200,8 @@ class CheICalMCPServer {
                         "calendar_name": .object(["type": .string("string"), "description": .string("Optional reminder list name")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")])
                     ])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: true, openWorldHint: false)
             ),
             Tool(
                 name: "create_reminder",
@@ -209,7 +217,8 @@ class CheICalMCPServer {
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")])
                     ]),
                     "required": .array([.string("title")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
             ),
             Tool(
                 name: "update_reminder",
@@ -226,7 +235,8 @@ class CheICalMCPServer {
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")])
                     ]),
                     "required": .array([.string("reminder_id")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
             ),
             Tool(
                 name: "complete_reminder",
@@ -238,7 +248,8 @@ class CheICalMCPServer {
                         "completed": .object(["type": .string("boolean"), "description": .string("true=completed, false=incomplete")])
                     ]),
                     "required": .array([.string("reminder_id")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
             ),
             Tool(
                 name: "delete_reminder",
@@ -249,7 +260,8 @@ class CheICalMCPServer {
                         "reminder_id": .object(["type": .string("string"), "description": .string("The reminder identifier")])
                     ]),
                     "required": .array([.string("reminder_id")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: true, openWorldHint: false)
             ),
 
             // New Feature Tools
@@ -277,7 +289,8 @@ class CheICalMCPServer {
                         "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")])
                     ])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: true, openWorldHint: false)
             ),
 
             // Feature 3: Quick Time Range
@@ -300,7 +313,8 @@ class CheICalMCPServer {
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")])
                     ]),
                     "required": .array([.string("range")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: true, openWorldHint: false)
             ),
 
             // Feature 4: Batch Create Events
@@ -330,7 +344,8 @@ class CheICalMCPServer {
                         ])
                     ]),
                     "required": .array([.string("events")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
             ),
 
             // Feature 5: Conflict Check
@@ -347,7 +362,8 @@ class CheICalMCPServer {
                         "exclude_event_id": .object(["type": .string("string"), "description": .string("Optional event ID to exclude from check (useful for updates)")])
                     ]),
                     "required": .array([.string("start_time"), .string("end_time")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: true, openWorldHint: false)
             ),
 
             // Feature 6: Copy Event
@@ -363,7 +379,8 @@ class CheICalMCPServer {
                         "delete_original": .object(["type": .string("boolean"), "description": .string("If true, delete the original event after copying (effectively a move)")])
                     ]),
                     "required": .array([.string("event_id"), .string("target_calendar")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
             ),
 
             // Feature 7: Move Events Batch
@@ -382,7 +399,8 @@ class CheICalMCPServer {
                         "target_calendar_source": .object(["type": .string("string"), "description": .string("Target calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")])
                     ]),
                     "required": .array([.string("event_ids"), .string("target_calendar")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
             ),
 
             // Feature 8: Delete Events Batch
@@ -404,7 +422,8 @@ class CheICalMCPServer {
                         ])
                     ]),
                     "required": .array([.string("event_ids")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: true, openWorldHint: false)
             ),
 
             // Feature 9: Find Duplicate Events
@@ -433,7 +452,8 @@ class CheICalMCPServer {
                         ])
                     ]),
                     "required": .array([.string("start_date"), .string("end_date")])
-                ])
+                ]),
+                annotations: .init(readOnlyHint: true, openWorldHint: false)
             ),
         ]
     }
