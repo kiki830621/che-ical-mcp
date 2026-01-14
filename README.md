@@ -33,7 +33,27 @@
 
 ## Quick Start
 
-### Option A: Download Release (Recommended)
+### For Claude Desktop
+
+#### Option A: MCPB One-Click Install (Recommended)
+
+Download the latest `.mcpb` file from [Releases](https://github.com/kiki830621/che-ical-mcp/releases) and double-click to install.
+
+#### Option B: Manual Configuration
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "che-ical-mcp": {
+      "command": "/usr/local/bin/che-ical-mcp"
+    }
+  }
+}
+```
+
+### For Claude Code (CLI)
 
 ```bash
 # Download the latest release
@@ -44,16 +64,12 @@ chmod +x /usr/local/bin/che-ical-mcp
 claude mcp add che-ical-mcp /usr/local/bin/che-ical-mcp
 ```
 
-### Option B: Build from Source
+### Build from Source (Optional)
 
 ```bash
-# Clone and build
 git clone https://github.com/kiki830621/che-ical-mcp.git
 cd che-ical-mcp
 swift build -c release
-
-# Add to Claude Code
-claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
 ```
 
 On first use, macOS will prompt for **Calendar** and **Reminders** access - click "Allow".
@@ -123,59 +139,60 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 - macOS 13.0+
 - Xcode Command Line Tools (only if building from source)
 
-### Step 1: Get the Binary
+### For Claude Desktop
 
-#### Option A: Download from Release (Recommended)
+#### Method 1: MCPB One-Click Install (Recommended)
+
+1. Download `che-ical-mcp.mcpb` from [Releases](https://github.com/kiki830621/che-ical-mcp/releases)
+2. Double-click the `.mcpb` file to install
+3. Restart Claude Desktop
+
+#### Method 2: Manual Configuration
+
+1. Download the binary:
+   ```bash
+   curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o /usr/local/bin/che-ical-mcp
+   chmod +x /usr/local/bin/che-ical-mcp
+   ```
+
+2. Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+   ```json
+   {
+     "mcpServers": {
+       "che-ical-mcp": {
+         "command": "/usr/local/bin/che-ical-mcp"
+       }
+     }
+   }
+   ```
+
+3. Restart Claude Desktop
+
+### For Claude Code (CLI)
 
 ```bash
-# Download to /usr/local/bin
+# Download the binary
 curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o /usr/local/bin/che-ical-mcp
 chmod +x /usr/local/bin/che-ical-mcp
+
+# Register with Claude Code
+claude mcp add che-ical-mcp /usr/local/bin/che-ical-mcp
 ```
 
-#### Option B: Build from Source
+### Build from Source (Optional)
 
 ```bash
 git clone https://github.com/kiki830621/che-ical-mcp.git
 cd che-ical-mcp
 swift build -c release
+
+# For Claude Code
+claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
 ```
 
-### Step 2: Configure
+### Grant Permissions
 
-#### For Claude Desktop
-
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "che-ical-mcp": {
-      "command": "/full/path/to/che-ical-mcp/.build/release/CheICalMCP"
-    }
-  }
-}
-```
-
-#### For Claude Code (CLI)
-
-```bash
-claude mcp add che-ical-mcp /full/path/to/che-ical-mcp/.build/release/CheICalMCP
-```
-
-### Step 3: Grant Permissions
-
-On first use, macOS will prompt for Calendar and Reminders access. Click **Allow** for both.
-
-### Step 4: Restart Claude
-
-```bash
-# For Claude Desktop
-osascript -e 'quit app "Claude"' && sleep 2 && open -a "Claude"
-
-# For Claude Code - start a new session
-claude
-```
+On first use, macOS will prompt for **Calendar** and **Reminders** access. Click **Allow** for both.
 
 ---
 

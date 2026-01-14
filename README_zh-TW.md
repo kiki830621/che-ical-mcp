@@ -33,7 +33,27 @@
 
 ## 快速開始
 
-### 方式 A：下載 Release（推薦）
+### Claude Desktop
+
+#### 方式 A：MCPB 一鍵安裝（推薦）
+
+從 [Releases](https://github.com/kiki830621/che-ical-mcp/releases) 下載最新的 `.mcpb` 檔案，雙擊即可安裝。
+
+#### 方式 B：手動設定
+
+編輯 `~/Library/Application Support/Claude/claude_desktop_config.json`：
+
+```json
+{
+  "mcpServers": {
+    "che-ical-mcp": {
+      "command": "/usr/local/bin/che-ical-mcp"
+    }
+  }
+}
+```
+
+### Claude Code (CLI)
 
 ```bash
 # 下載最新版本
@@ -44,16 +64,12 @@ chmod +x /usr/local/bin/che-ical-mcp
 claude mcp add che-ical-mcp /usr/local/bin/che-ical-mcp
 ```
 
-### 方式 B：從原始碼編譯
+### 從原始碼編譯（可選）
 
 ```bash
-# 複製並編譯
 git clone https://github.com/kiki830621/che-ical-mcp.git
 cd che-ical-mcp
 swift build -c release
-
-# 加入 Claude Code
-claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
 ```
 
 首次使用時，macOS 會詢問**行事曆**和**提醒事項**存取權限 - 請點選「允許」。
@@ -123,59 +139,60 @@ claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
 - macOS 13.0+
 - Xcode 命令列工具（僅從原始碼編譯時需要）
 
-### 步驟 1：取得執行檔
+### Claude Desktop
 
-#### 方式 A：從 Release 下載（推薦）
+#### 方法 1：MCPB 一鍵安裝（推薦）
+
+1. 從 [Releases](https://github.com/kiki830621/che-ical-mcp/releases) 下載 `che-ical-mcp.mcpb`
+2. 雙擊 `.mcpb` 檔案安裝
+3. 重新啟動 Claude Desktop
+
+#### 方法 2：手動設定
+
+1. 下載執行檔：
+   ```bash
+   curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o /usr/local/bin/che-ical-mcp
+   chmod +x /usr/local/bin/che-ical-mcp
+   ```
+
+2. 編輯 `~/Library/Application Support/Claude/claude_desktop_config.json`：
+   ```json
+   {
+     "mcpServers": {
+       "che-ical-mcp": {
+         "command": "/usr/local/bin/che-ical-mcp"
+       }
+     }
+   }
+   ```
+
+3. 重新啟動 Claude Desktop
+
+### Claude Code (CLI)
 
 ```bash
-# 下載到 /usr/local/bin
+# 下載執行檔
 curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o /usr/local/bin/che-ical-mcp
 chmod +x /usr/local/bin/che-ical-mcp
+
+# 註冊到 Claude Code
+claude mcp add che-ical-mcp /usr/local/bin/che-ical-mcp
 ```
 
-#### 方式 B：從原始碼編譯
+### 從原始碼編譯（可選）
 
 ```bash
 git clone https://github.com/kiki830621/che-ical-mcp.git
 cd che-ical-mcp
 swift build -c release
+
+# Claude Code
+claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
 ```
 
-### 步驟 2：設定
+### 授予權限
 
-#### Claude Desktop
-
-編輯 `~/Library/Application Support/Claude/claude_desktop_config.json`：
-
-```json
-{
-  "mcpServers": {
-    "che-ical-mcp": {
-      "command": "/完整路徑/che-ical-mcp/.build/release/CheICalMCP"
-    }
-  }
-}
-```
-
-#### Claude Code (CLI)
-
-```bash
-claude mcp add che-ical-mcp /完整路徑/che-ical-mcp/.build/release/CheICalMCP
-```
-
-### 步驟 3：授予權限
-
-首次使用時，macOS 會詢問行事曆和提醒事項存取權限。請點選**允許**。
-
-### 步驟 4：重新啟動 Claude
-
-```bash
-# Claude Desktop
-osascript -e 'quit app "Claude"' && sleep 2 && open -a "Claude"
-
-# Claude Code - 開啟新的 session
-claude
-```
+首次使用時，macOS 會詢問**行事曆**和**提醒事項**存取權限。請點選**允許**。
 
 ---
 
