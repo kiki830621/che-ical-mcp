@@ -22,6 +22,7 @@
 | **Conflict Detection** | No | **Yes** |
 | **Batch Operations** | No | **Yes** |
 | **Local Timezone** | No | **Yes** |
+| **Source Disambiguation** | No | **Yes** |
 | Create Calendar | Some | Yes |
 | Delete Calendar | Some | Yes |
 | Event Reminders | Some | Yes |
@@ -231,6 +232,7 @@ Works with any calendar synced to macOS Calendar app:
 
 | Version | Changes |
 |---------|---------|
+| v0.6.0 | **Source disambiguation**: `calendar_source` parameter for same-name calendars |
 | v0.5.0 | Batch delete, duplicate detection, multi-keyword search, improved permission errors, PRIVACY.md |
 | v0.4.0 | Copy/move events: `copy_event`, `move_events_batch` |
 | v0.3.0 | Advanced features: search, quick range, batch create, conflict check, timezone display |

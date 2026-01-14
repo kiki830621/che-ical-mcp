@@ -30,7 +30,7 @@ class CheICalMCPServer {
         // Create server with tools capability
         server = Server(
             name: "che-ical-mcp",
-            version: "0.5.0",
+            version: "0.6.0",
             capabilities: .init(tools: .init())
         )
 
@@ -118,6 +118,10 @@ class CheICalMCPServer {
                         "calendar_name": .object([
                             "type": .string("string"),
                             "description": .string("Optional calendar name to filter by")
+                        ]),
+                        "calendar_source": .object([
+                            "type": .string("string"),
+                            "description": .string("Calendar source name (e.g., 'iCloud', 'Google', 'Exchange'). Required when multiple calendars share the same name.")
                         ])
                     ]),
                     "required": .array([.string("start_date"), .string("end_date")])
@@ -136,6 +140,7 @@ class CheICalMCPServer {
                         "location": .object(["type": .string("string"), "description": .string("Optional event location")]),
                         "url": .object(["type": .string("string"), "description": .string("Optional event URL")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name")]),
+                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")]),
                         "all_day": .object(["type": .string("boolean"), "description": .string("Whether this is an all-day event")]),
                         "alarms_minutes_offsets": .object([
                             "type": .string("array"),
@@ -157,7 +162,9 @@ class CheICalMCPServer {
                         "start_time": .object(["type": .string("string"), "description": .string("New start time")]),
                         "end_time": .object(["type": .string("string"), "description": .string("New end time")]),
                         "notes": .object(["type": .string("string"), "description": .string("New notes")]),
-                        "location": .object(["type": .string("string"), "description": .string("New location")])
+                        "location": .object(["type": .string("string"), "description": .string("New location")]),
+                        "calendar_name": .object(["type": .string("string"), "description": .string("Move event to a different calendar")]),
+                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")])
                     ]),
                     "required": .array([.string("event_id")])
                 ])
@@ -183,7 +190,8 @@ class CheICalMCPServer {
                     "type": .string("object"),
                     "properties": .object([
                         "completed": .object(["type": .string("boolean"), "description": .string("Filter: true=completed, false=incomplete, omit=all")]),
-                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional reminder list name")])
+                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional reminder list name")]),
+                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")])
                     ])
                 ])
             ),
@@ -197,7 +205,8 @@ class CheICalMCPServer {
                         "notes": .object(["type": .string("string"), "description": .string("Optional notes")]),
                         "due_date": .object(["type": .string("string"), "description": .string("Optional due date in ISO8601 format")]),
                         "priority": .object(["type": .string("integer"), "description": .string("Priority: 0=none, 1=high, 5=medium, 9=low")]),
-                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional reminder list name")])
+                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional reminder list name")]),
+                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")])
                     ]),
                     "required": .array([.string("title")])
                 ])
@@ -212,7 +221,9 @@ class CheICalMCPServer {
                         "title": .object(["type": .string("string"), "description": .string("New title")]),
                         "notes": .object(["type": .string("string"), "description": .string("New notes")]),
                         "due_date": .object(["type": .string("string"), "description": .string("New due date")]),
-                        "priority": .object(["type": .string("integer"), "description": .string("New priority")])
+                        "priority": .object(["type": .string("integer"), "description": .string("New priority")]),
+                        "calendar_name": .object(["type": .string("string"), "description": .string("Move reminder to a different list")]),
+                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")])
                     ]),
                     "required": .array([.string("reminder_id")])
                 ])
@@ -263,7 +274,8 @@ class CheICalMCPServer {
                         ]),
                         "start_date": .object(["type": .string("string"), "description": .string("Optional start date in ISO8601 format to limit search range")]),
                         "end_date": .object(["type": .string("string"), "description": .string("Optional end date in ISO8601 format to limit search range")]),
-                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")])
+                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")]),
+                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")])
                     ])
                 ])
             ),
@@ -284,7 +296,8 @@ class CheICalMCPServer {
                             ]),
                             "description": .string("Quick time range shortcut")
                         ]),
-                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")])
+                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")]),
+                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")])
                     ]),
                     "required": .array([.string("range")])
                 ])
@@ -309,6 +322,7 @@ class CheICalMCPServer {
                                     "notes": .object(["type": .string("string")]),
                                     "location": .object(["type": .string("string")]),
                                     "calendar_name": .object(["type": .string("string")]),
+                                    "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google')")]),
                                     "all_day": .object(["type": .string("boolean")])
                                 ]),
                                 "required": .array([.string("title"), .string("start_time"), .string("end_time")])
@@ -329,6 +343,7 @@ class CheICalMCPServer {
                         "start_time": .object(["type": .string("string"), "description": .string("Start time to check in ISO8601 format")]),
                         "end_time": .object(["type": .string("string"), "description": .string("End time to check in ISO8601 format")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")]),
+                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")]),
                         "exclude_event_id": .object(["type": .string("string"), "description": .string("Optional event ID to exclude from check (useful for updates)")])
                     ]),
                     "required": .array([.string("start_time"), .string("end_time")])
@@ -344,6 +359,7 @@ class CheICalMCPServer {
                     "properties": .object([
                         "event_id": .object(["type": .string("string"), "description": .string("The event identifier to copy")]),
                         "target_calendar": .object(["type": .string("string"), "description": .string("Target calendar name to copy to")]),
+                        "target_calendar_source": .object(["type": .string("string"), "description": .string("Target calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")]),
                         "delete_original": .object(["type": .string("boolean"), "description": .string("If true, delete the original event after copying (effectively a move)")])
                     ]),
                     "required": .array([.string("event_id"), .string("target_calendar")])
@@ -362,7 +378,8 @@ class CheICalMCPServer {
                             "items": .object(["type": .string("string")]),
                             "description": .string("Array of event IDs to move")
                         ]),
-                        "target_calendar": .object(["type": .string("string"), "description": .string("Target calendar name to move events to")])
+                        "target_calendar": .object(["type": .string("string"), "description": .string("Target calendar name to move events to")]),
+                        "target_calendar_source": .object(["type": .string("string"), "description": .string("Target calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")])
                     ]),
                     "required": .array([.string("event_ids"), .string("target_calendar")])
                 ])
@@ -569,11 +586,13 @@ class CheICalMCPServer {
         }
 
         let calendarName = arguments["calendar_name"]?.stringValue
+        let calendarSource = arguments["calendar_source"]?.stringValue
 
         let events = try await eventKitManager.listEvents(
             startDate: startDate,
             endDate: endDate,
-            calendarName: calendarName
+            calendarName: calendarName,
+            calendarSource: calendarSource
         )
 
         let result = events.map { event -> [String: Any] in
@@ -616,6 +635,7 @@ class CheICalMCPServer {
         let location = arguments["location"]?.stringValue
         let url = arguments["url"]?.stringValue
         let calendarName = arguments["calendar_name"]?.stringValue
+        let calendarSource = arguments["calendar_source"]?.stringValue
         let isAllDay = arguments["all_day"]?.boolValue ?? false
 
         var alarmOffsets: [Int]?
@@ -631,6 +651,7 @@ class CheICalMCPServer {
             location: location,
             url: url,
             calendarName: calendarName,
+            calendarSource: calendarSource,
             isAllDay: isAllDay,
             alarmOffsets: alarmOffsets
         )
@@ -650,6 +671,7 @@ class CheICalMCPServer {
         let location = arguments["location"]?.stringValue
         let url = arguments["url"]?.stringValue
         let calendarName = arguments["calendar_name"]?.stringValue
+        let calendarSource = arguments["calendar_source"]?.stringValue
         let isAllDay = arguments["all_day"]?.boolValue
 
         let event = try await eventKitManager.updateEvent(
@@ -661,6 +683,7 @@ class CheICalMCPServer {
             location: location,
             url: url,
             calendarName: calendarName,
+            calendarSource: calendarSource,
             isAllDay: isAllDay
         )
 
@@ -684,10 +707,12 @@ class CheICalMCPServer {
     private func handleListReminders(arguments: [String: Value]) async throws -> String {
         let completed = arguments["completed"]?.boolValue
         let calendarName = arguments["calendar_name"]?.stringValue
+        let calendarSource = arguments["calendar_source"]?.stringValue
 
         let reminders = try await eventKitManager.listReminders(
             completed: completed,
-            calendarName: calendarName
+            calendarName: calendarName,
+            calendarSource: calendarSource
         )
 
         let result = reminders.map { reminder -> [String: Any] in
@@ -722,13 +747,15 @@ class CheICalMCPServer {
         let dueDate = arguments["due_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
         let priority = arguments["priority"]?.intValue ?? 0
         let calendarName = arguments["calendar_name"]?.stringValue
+        let calendarSource = arguments["calendar_source"]?.stringValue
 
         let reminder = try await eventKitManager.createReminder(
             title: title,
             notes: notes,
             dueDate: dueDate,
             priority: priority,
-            calendarName: calendarName
+            calendarName: calendarName,
+            calendarSource: calendarSource
         )
 
         return "Created reminder: \(reminder.title ?? title) (ID: \(reminder.calendarItemIdentifier))"
@@ -744,6 +771,7 @@ class CheICalMCPServer {
         let dueDate = arguments["due_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
         let priority = arguments["priority"]?.intValue
         let calendarName = arguments["calendar_name"]?.stringValue
+        let calendarSource = arguments["calendar_source"]?.stringValue
 
         let reminder = try await eventKitManager.updateReminder(
             identifier: reminderId,
@@ -751,7 +779,8 @@ class CheICalMCPServer {
             notes: notes,
             dueDate: dueDate,
             priority: priority,
-            calendarName: calendarName
+            calendarName: calendarName,
+            calendarSource: calendarSource
         )
 
         return "Updated reminder: \(reminder.title ?? "")"
@@ -803,13 +832,15 @@ class CheICalMCPServer {
         let startDate = arguments["start_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
         let endDate = arguments["end_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
         let calendarName = arguments["calendar_name"]?.stringValue
+        let calendarSource = arguments["calendar_source"]?.stringValue
 
         let events = try await eventKitManager.searchEvents(
             keywords: keywords,
             matchMode: matchMode,
             startDate: startDate,
             endDate: endDate,
-            calendarName: calendarName
+            calendarName: calendarName,
+            calendarSource: calendarSource
         )
 
         let result = events.map { event -> [String: Any] in
@@ -847,11 +878,13 @@ class CheICalMCPServer {
 
         let (startDate, endDate) = getDateRange(for: range)
         let calendarName = arguments["calendar_name"]?.stringValue
+        let calendarSource = arguments["calendar_source"]?.stringValue
 
         let events = try await eventKitManager.listEvents(
             startDate: startDate,
             endDate: endDate,
-            calendarName: calendarName
+            calendarName: calendarName,
+            calendarSource: calendarSource
         )
 
         let result = events.map { event -> [String: Any] in
@@ -924,6 +957,7 @@ class CheICalMCPServer {
                     location: eventDict["location"]?.stringValue,
                     url: nil,
                     calendarName: eventDict["calendar_name"]?.stringValue,
+                    calendarSource: eventDict["calendar_source"]?.stringValue,
                     isAllDay: eventDict["all_day"]?.boolValue ?? false,
                     alarmOffsets: nil,
                     recurrenceRule: nil
@@ -967,12 +1001,14 @@ class CheICalMCPServer {
         }
 
         let calendarName = arguments["calendar_name"]?.stringValue
+        let calendarSource = arguments["calendar_source"]?.stringValue
         let excludeEventId = arguments["exclude_event_id"]?.stringValue
 
         let conflicts = try await eventKitManager.checkConflicts(
             startDate: startDate,
             endDate: endDate,
             calendarName: calendarName,
+            calendarSource: calendarSource,
             excludeEventId: excludeEventId
         )
 
@@ -1014,11 +1050,13 @@ class CheICalMCPServer {
             throw ToolError.invalidParameter("target_calendar is required")
         }
 
+        let targetCalendarSource = arguments["target_calendar_source"]?.stringValue
         let deleteOriginal = arguments["delete_original"]?.boolValue ?? false
 
         let newEvent = try await eventKitManager.copyEvent(
             identifier: eventId,
             toCalendarName: targetCalendar,
+            toCalendarSource: targetCalendarSource,
             deleteOriginal: deleteOriginal
         )
 
@@ -1035,6 +1073,7 @@ class CheICalMCPServer {
             throw ToolError.invalidParameter("target_calendar is required")
         }
 
+        let targetCalendarSource = arguments["target_calendar_source"]?.stringValue
         let ids = eventIds.compactMap { $0.stringValue }
         if ids.isEmpty {
             throw ToolError.invalidParameter("event_ids must contain at least one event ID")
@@ -1047,6 +1086,7 @@ class CheICalMCPServer {
                 let event = try await eventKitManager.copyEvent(
                     identifier: eventId,
                     toCalendarName: targetCalendar,
+                    toCalendarSource: targetCalendarSource,
                     deleteOriginal: true  // Move = copy + delete original
                 )
                 results.append([

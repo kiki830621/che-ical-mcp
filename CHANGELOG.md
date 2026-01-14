@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-01-14
+
+### Added
+- **`calendar_source` parameter**: New optional parameter for disambiguating calendars with the same name across different sources (e.g., iCloud, Google, Exchange)
+- Added to 10 tools: `list_events`, `create_event`, `update_event`, `list_reminders`, `create_reminder`, `update_reminder`, `search_events`, `list_events_quick`, `check_conflicts`, `create_events_batch`
+- **`target_calendar_source` parameter**: For `copy_event` and `move_events_batch` tools
+- **Improved error messages**: When multiple calendars share the same name, the error now lists all available sources for disambiguation
+
+### Changed
+- Refactored calendar lookup logic with new `findCalendar()` and `findCalendars()` helper methods
+- Clearer error handling for calendar-not-found scenarios
+
 ## [0.5.0] - 2026-01-14
 
 ### Added
@@ -58,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Total Tools | New Tools |
 |---------|-------------|-----------|
+| 0.6.0   | 20          | Enhancement: calendar_source parameter for disambiguation |
 | 0.5.0   | 20          | +2 (delete_events_batch, find_duplicate_events) |
 | 0.4.0   | 18          | +2 (copy_event, move_events_batch) |
 | 0.3.0   | 16          | +4 (search_events, list_events_quick, create_events_batch, check_conflicts) |

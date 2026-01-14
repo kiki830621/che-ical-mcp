@@ -51,6 +51,71 @@ actor EventKitManager {
 
     // MARK: - Calendars
 
+    /// Find a calendar by name and optional source
+    /// - Parameters:
+    ///   - name: Calendar name
+    ///   - source: Optional source name (e.g., "iCloud", "Google", "Exchange")
+    ///   - entityType: Calendar type (.event or .reminder)
+    /// - Returns: The matching calendar
+    /// - Throws: calendarNotFound if not found, multipleCalendarsFound if ambiguous
+    func findCalendar(
+        name: String,
+        source: String?,
+        entityType: EKEntityType
+    ) throws -> EKCalendar {
+        let calendars = eventStore.calendars(for: entityType).filter { cal in
+            cal.title == name &&
+            (source == nil || cal.source.title == source)
+        }
+
+        if calendars.isEmpty {
+            if let source = source {
+                throw EventKitError.calendarNotFoundWithSource(name: name, source: source)
+            } else {
+                throw EventKitError.calendarNotFound(identifier: name)
+            }
+        }
+
+        if calendars.count > 1 {
+            let sources = calendars.map { $0.source.title }.joined(separator: ", ")
+            throw EventKitError.multipleCalendarsFound(name: name, sources: sources)
+        }
+
+        return calendars[0]
+    }
+
+    /// Find calendars by name and optional source (returns array for filtering)
+    /// - Parameters:
+    ///   - name: Calendar name
+    ///   - source: Optional source name
+    ///   - entityType: Calendar type
+    /// - Returns: Array of matching calendars (may be empty)
+    func findCalendars(
+        name: String,
+        source: String?,
+        entityType: EKEntityType
+    ) throws -> [EKCalendar] {
+        let calendars = eventStore.calendars(for: entityType).filter { cal in
+            cal.title == name &&
+            (source == nil || cal.source.title == source)
+        }
+
+        if calendars.isEmpty {
+            if let source = source {
+                throw EventKitError.calendarNotFoundWithSource(name: name, source: source)
+            } else {
+                throw EventKitError.calendarNotFound(identifier: name)
+            }
+        }
+
+        if calendars.count > 1 && source == nil {
+            let sources = calendars.map { $0.source.title }.joined(separator: ", ")
+            throw EventKitError.multipleCalendarsFound(name: name, sources: sources)
+        }
+
+        return calendars
+    }
+
     func listCalendars(for entityType: EKEntityType? = nil) async throws -> [EKCalendar] {
         if entityType == .event || entityType == nil {
             try await requestCalendarAccess()
@@ -107,16 +172,17 @@ actor EventKitManager {
 
     // MARK: - Events
 
-    func listEvents(startDate: Date, endDate: Date, calendarName: String? = nil) async throws -> [EKEvent] {
+    func listEvents(
+        startDate: Date,
+        endDate: Date,
+        calendarName: String? = nil,
+        calendarSource: String? = nil
+    ) async throws -> [EKEvent] {
         try await requestCalendarAccess()
 
         var calendars: [EKCalendar]?
         if let name = calendarName {
-            let allCalendars = eventStore.calendars(for: .event)
-            calendars = allCalendars.filter { $0.title == name }
-            if calendars?.isEmpty == true {
-                throw EventKitError.calendarNotFound(identifier: name)
-            }
+            calendars = try findCalendars(name: name, source: calendarSource, entityType: .event)
         }
 
         let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: calendars)
@@ -131,6 +197,7 @@ actor EventKitManager {
         location: String? = nil,
         url: String? = nil,
         calendarName: String? = nil,
+        calendarSource: String? = nil,
         isAllDay: Bool = false,
         alarmOffsets: [Int]? = nil,
         recurrenceRule: RecurrenceRuleInput? = nil
@@ -151,12 +218,7 @@ actor EventKitManager {
 
         // Set calendar
         if let name = calendarName {
-            let calendars = eventStore.calendars(for: .event).filter { $0.title == name }
-            if let calendar = calendars.first {
-                event.calendar = calendar
-            } else {
-                throw EventKitError.calendarNotFound(identifier: name)
-            }
+            event.calendar = try findCalendar(name: name, source: calendarSource, entityType: .event)
         } else {
             event.calendar = eventStore.defaultCalendarForNewEvents
         }
@@ -187,6 +249,7 @@ actor EventKitManager {
         location: String? = nil,
         url: String? = nil,
         calendarName: String? = nil,
+        calendarSource: String? = nil,
         isAllDay: Bool? = nil,
         alarmOffsets: [Int]? = nil,
         recurrenceRule: RecurrenceRuleInput? = nil
@@ -209,10 +272,7 @@ actor EventKitManager {
         }
 
         if let name = calendarName {
-            let calendars = eventStore.calendars(for: .event).filter { $0.title == name }
-            if let calendar = calendars.first {
-                event.calendar = calendar
-            }
+            event.calendar = try findCalendar(name: name, source: calendarSource, entityType: .event)
         }
 
         // Update alarms
@@ -258,12 +318,14 @@ actor EventKitManager {
     ///   - startDate: Optional start date for search range
     ///   - endDate: Optional end date for search range
     ///   - calendarName: Optional calendar name filter
+    ///   - calendarSource: Optional calendar source filter
     func searchEvents(
         keywords: [String],
         matchMode: String = "any",
         startDate: Date? = nil,
         endDate: Date? = nil,
-        calendarName: String? = nil
+        calendarName: String? = nil,
+        calendarSource: String? = nil
     ) async throws -> [EKEvent] {
         try await requestCalendarAccess()
 
@@ -273,11 +335,7 @@ actor EventKitManager {
 
         var calendars: [EKCalendar]?
         if let name = calendarName {
-            let allCalendars = eventStore.calendars(for: .event)
-            calendars = allCalendars.filter { $0.title == name }
-            if calendars?.isEmpty == true {
-                throw EventKitError.calendarNotFound(identifier: name)
-            }
+            calendars = try findCalendars(name: name, source: calendarSource, entityType: .event)
         }
 
         let predicate = eventStore.predicateForEvents(withStart: searchStart, end: searchEnd, calendars: calendars)
@@ -309,14 +367,16 @@ actor EventKitManager {
         keyword: String,
         startDate: Date? = nil,
         endDate: Date? = nil,
-        calendarName: String? = nil
+        calendarName: String? = nil,
+        calendarSource: String? = nil
     ) async throws -> [EKEvent] {
         return try await searchEvents(
             keywords: [keyword],
             matchMode: "any",
             startDate: startDate,
             endDate: endDate,
-            calendarName: calendarName
+            calendarName: calendarName,
+            calendarSource: calendarSource
         )
     }
 
@@ -414,17 +474,14 @@ actor EventKitManager {
         startDate: Date,
         endDate: Date,
         calendarName: String? = nil,
+        calendarSource: String? = nil,
         excludeEventId: String? = nil
     ) async throws -> [EKEvent] {
         try await requestCalendarAccess()
 
         var calendars: [EKCalendar]?
         if let name = calendarName {
-            let allCalendars = eventStore.calendars(for: .event)
-            calendars = allCalendars.filter { $0.title == name }
-            if calendars?.isEmpty == true {
-                throw EventKitError.calendarNotFound(identifier: name)
-            }
+            calendars = try findCalendars(name: name, source: calendarSource, entityType: .event)
         }
 
         let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: calendars)
@@ -445,6 +502,7 @@ actor EventKitManager {
     func copyEvent(
         identifier: String,
         toCalendarName: String,
+        toCalendarSource: String? = nil,
         deleteOriginal: Bool = false
     ) async throws -> EKEvent {
         try await requestCalendarAccess()
@@ -455,10 +513,7 @@ actor EventKitManager {
         }
 
         // Find the target calendar
-        let allCalendars = eventStore.calendars(for: .event)
-        guard let targetCalendar = allCalendars.first(where: { $0.title == toCalendarName }) else {
-            throw EventKitError.calendarNotFound(identifier: toCalendarName)
-        }
+        let targetCalendar = try findCalendar(name: toCalendarName, source: toCalendarSource, entityType: .event)
 
         // Check if target calendar allows modifications
         guard targetCalendar.allowsContentModifications else {
@@ -496,16 +551,12 @@ actor EventKitManager {
 
     // MARK: - Reminders
 
-    func listReminders(completed: Bool? = nil, calendarName: String? = nil) async throws -> [EKReminder] {
+    func listReminders(completed: Bool? = nil, calendarName: String? = nil, calendarSource: String? = nil) async throws -> [EKReminder] {
         try await requestReminderAccess()
 
         var calendars: [EKCalendar]?
         if let name = calendarName {
-            let allCalendars = eventStore.calendars(for: .reminder)
-            calendars = allCalendars.filter { $0.title == name }
-            if calendars?.isEmpty == true {
-                throw EventKitError.calendarNotFound(identifier: name)
-            }
+            calendars = try findCalendars(name: name, source: calendarSource, entityType: .reminder)
         }
 
         let predicate: NSPredicate
@@ -544,6 +595,7 @@ actor EventKitManager {
         dueDate: Date? = nil,
         priority: Int = 0,
         calendarName: String? = nil,
+        calendarSource: String? = nil,
         alarmOffsets: [Int]? = nil,
         recurrenceRule: RecurrenceRuleInput? = nil
     ) async throws -> EKReminder {
@@ -563,12 +615,8 @@ actor EventKitManager {
 
         // Set calendar
         if let name = calendarName {
-            let calendars = eventStore.calendars(for: .reminder).filter { $0.title == name }
-            if let calendar = calendars.first {
-                reminder.calendar = calendar
-            } else {
-                throw EventKitError.calendarNotFound(identifier: name)
-            }
+            let calendar = try findCalendar(name: name, source: calendarSource, entityType: .reminder)
+            reminder.calendar = calendar
         } else {
             reminder.calendar = eventStore.defaultCalendarForNewReminders()
         }
@@ -597,6 +645,7 @@ actor EventKitManager {
         dueDate: Date? = nil,
         priority: Int? = nil,
         calendarName: String? = nil,
+        calendarSource: String? = nil,
         alarmOffsets: [Int]? = nil
     ) async throws -> EKReminder {
         try await requestReminderAccess()
@@ -617,10 +666,8 @@ actor EventKitManager {
         }
 
         if let name = calendarName {
-            let calendars = eventStore.calendars(for: .reminder).filter { $0.title == name }
-            if let calendar = calendars.first {
-                reminder.calendar = calendar
-            }
+            let calendar = try findCalendar(name: name, source: calendarSource, entityType: .reminder)
+            reminder.calendar = calendar
         }
 
         // Update alarms
@@ -739,6 +786,8 @@ struct RecurrenceRuleInput {
 enum EventKitError: LocalizedError {
     case accessDenied(type: String)
     case calendarNotFound(identifier: String)
+    case calendarNotFoundWithSource(name: String, source: String)
+    case multipleCalendarsFound(name: String, sources: String)
     case eventNotFound(identifier: String)
     case reminderNotFound(identifier: String)
 
@@ -753,6 +802,14 @@ enum EventKitError: LocalizedError {
             """
         case .calendarNotFound(let id):
             return "Calendar not found: \(id)"
+        case .calendarNotFoundWithSource(let name, let source):
+            return "Calendar '\(name)' not found in source '\(source)'"
+        case .multipleCalendarsFound(let name, let sources):
+            return """
+            Multiple calendars found with name '\(name)'.
+            Available sources: \(sources)
+            Please specify calendar_source to disambiguate.
+            """
         case .eventNotFound(let id):
             return "Event not found: \(id)"
         case .reminderNotFound(let id):
