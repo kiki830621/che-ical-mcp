@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "che-ical-mcp",
   "display_name": "macOS Calendar & Reminders",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Native EventKit integration for macOS Calendar and Reminders apps",
   "long_description": "A powerful MCP server providing 20 tools for managing macOS Calendar events and Reminders. Features include batch operations, conflict detection, duplicate finding, multi-keyword search, and support for iCloud, Google, and Exchange calendars. Requires macOS 13.0 or later.",
   "author": {
