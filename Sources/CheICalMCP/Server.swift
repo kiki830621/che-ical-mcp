@@ -9,6 +9,14 @@ class CheICalMCPServer {
     private let eventKitManager = EventKitManager.shared
     private let dateFormatter: ISO8601DateFormatter
 
+    /// Local time formatter for user-friendly display
+    private let localDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        f.timeZone = TimeZone.current
+        return f
+    }()
+
     /// All available tools
     private let tools: [Tool]
 
@@ -232,6 +240,91 @@ class CheICalMCPServer {
                     "required": .array([.string("reminder_id")])
                 ])
             ),
+
+            // New Feature Tools
+
+            // Feature 2: Search Events
+            Tool(
+                name: "search_events",
+                description: "Search events by keyword in title, notes, or location.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "keyword": .object(["type": .string("string"), "description": .string("Search keyword (case-insensitive)")]),
+                        "start_date": .object(["type": .string("string"), "description": .string("Optional start date in ISO8601 format")]),
+                        "end_date": .object(["type": .string("string"), "description": .string("Optional end date in ISO8601 format")]),
+                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")])
+                    ]),
+                    "required": .array([.string("keyword")])
+                ])
+            ),
+
+            // Feature 3: Quick Time Range
+            Tool(
+                name: "list_events_quick",
+                description: "List events with quick time range shortcuts.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "range": .object([
+                            "type": .string("string"),
+                            "enum": .array([
+                                .string("today"), .string("tomorrow"),
+                                .string("this_week"), .string("next_week"),
+                                .string("this_month"), .string("next_7_days"), .string("next_30_days")
+                            ]),
+                            "description": .string("Quick time range shortcut")
+                        ]),
+                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")])
+                    ]),
+                    "required": .array([.string("range")])
+                ])
+            ),
+
+            // Feature 4: Batch Create Events
+            Tool(
+                name: "create_events_batch",
+                description: "Create multiple events at once. Returns results for each event.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "events": .object([
+                            "type": .string("array"),
+                            "description": .string("Array of event objects to create"),
+                            "items": .object([
+                                "type": .string("object"),
+                                "properties": .object([
+                                    "title": .object(["type": .string("string")]),
+                                    "start_time": .object(["type": .string("string")]),
+                                    "end_time": .object(["type": .string("string")]),
+                                    "notes": .object(["type": .string("string")]),
+                                    "location": .object(["type": .string("string")]),
+                                    "calendar_name": .object(["type": .string("string")]),
+                                    "all_day": .object(["type": .string("boolean")])
+                                ]),
+                                "required": .array([.string("title"), .string("start_time"), .string("end_time")])
+                            ])
+                        ])
+                    ]),
+                    "required": .array([.string("events")])
+                ])
+            ),
+
+            // Feature 5: Conflict Check
+            Tool(
+                name: "check_conflicts",
+                description: "Check for overlapping events in a time range.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "start_time": .object(["type": .string("string"), "description": .string("Start time to check in ISO8601 format")]),
+                        "end_time": .object(["type": .string("string"), "description": .string("End time to check in ISO8601 format")]),
+                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")]),
+                        "exclude_event_id": .object(["type": .string("string"), "description": .string("Optional event ID to exclude from check (useful for updates)")])
+                    ]),
+                    "required": .array([.string("start_time"), .string("end_time")])
+                ])
+            ),
         ]
     }
 
@@ -294,6 +387,16 @@ class CheICalMCPServer {
             return try await handleCompleteReminder(arguments: arguments)
         case "delete_reminder":
             return try await handleDeleteReminder(arguments: arguments)
+
+        // New Feature Tools
+        case "search_events":
+            return try await handleSearchEvents(arguments: arguments)
+        case "list_events_quick":
+            return try await handleListEventsQuick(arguments: arguments)
+        case "create_events_batch":
+            return try await handleCreateEventsBatch(arguments: arguments)
+        case "check_conflicts":
+            return try await handleCheckConflicts(arguments: arguments)
 
         default:
             throw ToolError.unknownTool(name)
@@ -377,7 +480,10 @@ class CheICalMCPServer {
                 "id": event.eventIdentifier ?? "",
                 "title": event.title ?? "",
                 "start_date": dateFormatter.string(from: event.startDate),
+                "start_date_local": localDateFormatter.string(from: event.startDate),
                 "end_date": dateFormatter.string(from: event.endDate),
+                "end_date_local": localDateFormatter.string(from: event.endDate),
+                "timezone": TimeZone.current.identifier,
                 "is_all_day": event.isAllDay,
                 "calendar": event.calendar.title
             ]
@@ -489,14 +595,17 @@ class CheICalMCPServer {
                 "title": reminder.title ?? "",
                 "is_completed": reminder.isCompleted,
                 "priority": reminder.priority,
-                "calendar": reminder.calendar.title
+                "calendar": reminder.calendar.title,
+                "timezone": TimeZone.current.identifier
             ]
             if let notes = reminder.notes { dict["notes"] = notes }
             if let dueDate = reminder.dueDateComponents?.date {
                 dict["due_date"] = dateFormatter.string(from: dueDate)
+                dict["due_date_local"] = localDateFormatter.string(from: dueDate)
             }
             if let completionDate = reminder.completionDate {
                 dict["completion_date"] = dateFormatter.string(from: completionDate)
+                dict["completion_date_local"] = localDateFormatter.string(from: completionDate)
             }
             return dict
         }
@@ -572,7 +681,244 @@ class CheICalMCPServer {
         return "Reminder deleted successfully"
     }
 
+    // MARK: - New Feature Handlers
+
+    /// Feature 2: Search events by keyword
+    private func handleSearchEvents(arguments: [String: Value]) async throws -> String {
+        guard let keyword = arguments["keyword"]?.stringValue else {
+            throw ToolError.invalidParameter("keyword is required")
+        }
+
+        let startDate = arguments["start_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
+        let endDate = arguments["end_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
+        let calendarName = arguments["calendar_name"]?.stringValue
+
+        let events = try await eventKitManager.searchEvents(
+            keyword: keyword,
+            startDate: startDate,
+            endDate: endDate,
+            calendarName: calendarName
+        )
+
+        let result = events.map { event -> [String: Any] in
+            var dict: [String: Any] = [
+                "id": event.eventIdentifier ?? "",
+                "title": event.title ?? "",
+                "start_date": dateFormatter.string(from: event.startDate),
+                "start_date_local": localDateFormatter.string(from: event.startDate),
+                "end_date": dateFormatter.string(from: event.endDate),
+                "end_date_local": localDateFormatter.string(from: event.endDate),
+                "timezone": TimeZone.current.identifier,
+                "is_all_day": event.isAllDay,
+                "calendar": event.calendar.title
+            ]
+            if let notes = event.notes { dict["notes"] = notes }
+            if let location = event.location { dict["location"] = location }
+            if let url = event.url { dict["url"] = url.absoluteString }
+            return dict
+        }
+        return formatJSON(result)
+    }
+
+    /// Feature 3: List events with quick time range
+    private func handleListEventsQuick(arguments: [String: Value]) async throws -> String {
+        guard let range = arguments["range"]?.stringValue else {
+            throw ToolError.invalidParameter("range is required")
+        }
+
+        let (startDate, endDate) = getDateRange(for: range)
+        let calendarName = arguments["calendar_name"]?.stringValue
+
+        let events = try await eventKitManager.listEvents(
+            startDate: startDate,
+            endDate: endDate,
+            calendarName: calendarName
+        )
+
+        let result = events.map { event -> [String: Any] in
+            var dict: [String: Any] = [
+                "id": event.eventIdentifier ?? "",
+                "title": event.title ?? "",
+                "start_date": dateFormatter.string(from: event.startDate),
+                "start_date_local": localDateFormatter.string(from: event.startDate),
+                "end_date": dateFormatter.string(from: event.endDate),
+                "end_date_local": localDateFormatter.string(from: event.endDate),
+                "timezone": TimeZone.current.identifier,
+                "is_all_day": event.isAllDay,
+                "calendar": event.calendar.title
+            ]
+            if let notes = event.notes { dict["notes"] = notes }
+            if let location = event.location { dict["location"] = location }
+            if let url = event.url { dict["url"] = url.absoluteString }
+            if event.hasRecurrenceRules { dict["is_recurring"] = true }
+            return dict
+        }
+
+        // Include the computed date range in response
+        let response: [String: Any] = [
+            "range": range,
+            "start_date": dateFormatter.string(from: startDate),
+            "start_date_local": localDateFormatter.string(from: startDate),
+            "end_date": dateFormatter.string(from: endDate),
+            "end_date_local": localDateFormatter.string(from: endDate),
+            "timezone": TimeZone.current.identifier,
+            "events": result
+        ]
+        return formatJSON(response)
+    }
+
+    /// Feature 4: Create multiple events at once
+    private func handleCreateEventsBatch(arguments: [String: Value]) async throws -> String {
+        guard let eventsArray = arguments["events"]?.arrayValue else {
+            throw ToolError.invalidParameter("events array is required")
+        }
+
+        var results: [[String: Any]] = []
+
+        for (index, eventValue) in eventsArray.enumerated() {
+            guard let eventDict = eventValue.objectValue else {
+                results.append(["index": index, "success": false, "error": "Invalid event format"])
+                continue
+            }
+
+            guard let title = eventDict["title"]?.stringValue else {
+                results.append(["index": index, "success": false, "error": "title is required"])
+                continue
+            }
+            guard let startStr = eventDict["start_time"]?.stringValue,
+                  let startDate = dateFormatter.date(from: startStr) else {
+                results.append(["index": index, "success": false, "error": "start_time must be a valid ISO8601 date"])
+                continue
+            }
+            guard let endStr = eventDict["end_time"]?.stringValue,
+                  let endDate = dateFormatter.date(from: endStr) else {
+                results.append(["index": index, "success": false, "error": "end_time must be a valid ISO8601 date"])
+                continue
+            }
+
+            do {
+                let event = try await eventKitManager.createEvent(
+                    title: title,
+                    startDate: startDate,
+                    endDate: endDate,
+                    notes: eventDict["notes"]?.stringValue,
+                    location: eventDict["location"]?.stringValue,
+                    url: nil,
+                    calendarName: eventDict["calendar_name"]?.stringValue,
+                    isAllDay: eventDict["all_day"]?.boolValue ?? false,
+                    alarmOffsets: nil,
+                    recurrenceRule: nil
+                )
+                results.append([
+                    "index": index,
+                    "success": true,
+                    "event_id": event.eventIdentifier ?? "",
+                    "title": event.title ?? title
+                ])
+            } catch {
+                results.append([
+                    "index": index,
+                    "success": false,
+                    "error": error.localizedDescription
+                ])
+            }
+        }
+
+        let successCount = results.filter { ($0["success"] as? Bool) == true }.count
+        let response: [String: Any] = [
+            "total": eventsArray.count,
+            "succeeded": successCount,
+            "failed": eventsArray.count - successCount,
+            "results": results
+        ]
+        return formatJSON(response)
+    }
+
+    /// Feature 5: Check for conflicting events
+    private func handleCheckConflicts(arguments: [String: Value]) async throws -> String {
+        guard let startStr = arguments["start_time"]?.stringValue,
+              let startDate = dateFormatter.date(from: startStr)
+        else {
+            throw ToolError.invalidParameter("start_time must be a valid ISO8601 date")
+        }
+        guard let endStr = arguments["end_time"]?.stringValue,
+              let endDate = dateFormatter.date(from: endStr)
+        else {
+            throw ToolError.invalidParameter("end_time must be a valid ISO8601 date")
+        }
+
+        let calendarName = arguments["calendar_name"]?.stringValue
+        let excludeEventId = arguments["exclude_event_id"]?.stringValue
+
+        let conflicts = try await eventKitManager.checkConflicts(
+            startDate: startDate,
+            endDate: endDate,
+            calendarName: calendarName,
+            excludeEventId: excludeEventId
+        )
+
+        let result = conflicts.map { event -> [String: Any] in
+            var dict: [String: Any] = [
+                "id": event.eventIdentifier ?? "",
+                "title": event.title ?? "",
+                "start_date": dateFormatter.string(from: event.startDate),
+                "start_date_local": localDateFormatter.string(from: event.startDate),
+                "end_date": dateFormatter.string(from: event.endDate),
+                "end_date_local": localDateFormatter.string(from: event.endDate),
+                "timezone": TimeZone.current.identifier,
+                "calendar": event.calendar.title
+            ]
+            if let location = event.location { dict["location"] = location }
+            return dict
+        }
+
+        let response: [String: Any] = [
+            "has_conflicts": !conflicts.isEmpty,
+            "conflict_count": conflicts.count,
+            "check_range": [
+                "start": dateFormatter.string(from: startDate),
+                "start_local": localDateFormatter.string(from: startDate),
+                "end": dateFormatter.string(from: endDate),
+                "end_local": localDateFormatter.string(from: endDate)
+            ],
+            "conflicts": result
+        ]
+        return formatJSON(response)
+    }
+
     // MARK: - Helpers
+
+    /// Get date range for quick time shortcuts
+    private func getDateRange(for shortcut: String) -> (start: Date, end: Date) {
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfToday = calendar.startOfDay(for: now)
+
+        switch shortcut {
+        case "today":
+            return (startOfToday, calendar.date(byAdding: .day, value: 1, to: startOfToday)!)
+        case "tomorrow":
+            let tomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
+            return (tomorrow, calendar.date(byAdding: .day, value: 1, to: tomorrow)!)
+        case "this_week":
+            let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
+            return (weekStart, calendar.date(byAdding: .day, value: 7, to: weekStart)!)
+        case "next_week":
+            let thisWeekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
+            let nextWeekStart = calendar.date(byAdding: .weekOfYear, value: 1, to: thisWeekStart)!
+            return (nextWeekStart, calendar.date(byAdding: .day, value: 7, to: nextWeekStart)!)
+        case "this_month":
+            let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
+            return (monthStart, calendar.date(byAdding: .month, value: 1, to: monthStart)!)
+        case "next_7_days":
+            return (startOfToday, calendar.date(byAdding: .day, value: 7, to: startOfToday)!)
+        case "next_30_days":
+            return (startOfToday, calendar.date(byAdding: .day, value: 30, to: startOfToday)!)
+        default:
+            // Default to today
+            return (startOfToday, calendar.date(byAdding: .day, value: 1, to: startOfToday)!)
+        }
+    }
 
     private func formatJSON(_ value: Any) -> String {
         do {

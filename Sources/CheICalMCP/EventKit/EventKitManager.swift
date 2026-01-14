@@ -249,6 +249,81 @@ actor EventKitManager {
         try eventStore.remove(event, span: span)
     }
 
+    // MARK: - Search and Conflict Detection
+
+    /// Search events by keyword in title, notes, or location
+    func searchEvents(
+        keyword: String,
+        startDate: Date? = nil,
+        endDate: Date? = nil,
+        calendarName: String? = nil
+    ) async throws -> [EKEvent] {
+        try await requestCalendarAccess()
+
+        // Default to a wide date range if not specified
+        let searchStart = startDate ?? Date.distantPast
+        let searchEnd = endDate ?? Date.distantFuture
+
+        var calendars: [EKCalendar]?
+        if let name = calendarName {
+            let allCalendars = eventStore.calendars(for: .event)
+            calendars = allCalendars.filter { $0.title == name }
+            if calendars?.isEmpty == true {
+                throw EventKitError.calendarNotFound(identifier: name)
+            }
+        }
+
+        let predicate = eventStore.predicateForEvents(withStart: searchStart, end: searchEnd, calendars: calendars)
+        let allEvents = eventStore.events(matching: predicate)
+
+        // Filter by keyword (case-insensitive)
+        let lowercasedKeyword = keyword.lowercased()
+        return allEvents.filter { event in
+            if let title = event.title?.lowercased(), title.contains(lowercasedKeyword) {
+                return true
+            }
+            if let notes = event.notes?.lowercased(), notes.contains(lowercasedKeyword) {
+                return true
+            }
+            if let location = event.location?.lowercased(), location.contains(lowercasedKeyword) {
+                return true
+            }
+            return false
+        }
+    }
+
+    /// Check for events that overlap with the given time range
+    func checkConflicts(
+        startDate: Date,
+        endDate: Date,
+        calendarName: String? = nil,
+        excludeEventId: String? = nil
+    ) async throws -> [EKEvent] {
+        try await requestCalendarAccess()
+
+        var calendars: [EKCalendar]?
+        if let name = calendarName {
+            let allCalendars = eventStore.calendars(for: .event)
+            calendars = allCalendars.filter { $0.title == name }
+            if calendars?.isEmpty == true {
+                throw EventKitError.calendarNotFound(identifier: name)
+            }
+        }
+
+        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: calendars)
+        let events = eventStore.events(matching: predicate)
+
+        // Filter out excluded event and check for actual overlap
+        return events.filter { event in
+            // Exclude the specified event (useful when checking before updating)
+            if let excludeId = excludeEventId, event.eventIdentifier == excludeId {
+                return false
+            }
+            // Check for time overlap (event must actually overlap with the range)
+            return event.startDate < endDate && event.endDate > startDate
+        }
+    }
+
     // MARK: - Reminders
 
     func listReminders(completed: Bool? = nil, calendarName: String? = nil) async throws -> [EKReminder] {
