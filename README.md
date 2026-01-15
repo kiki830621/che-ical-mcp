@@ -287,7 +287,7 @@ If ambiguity is detected, the error message will list all available sources.
 
 ## Technical Details
 
-- **Current Version**: v0.6.0
+- **Current Version**: v0.7.0
 - **Framework**: [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.10.0
 - **Calendar API**: EventKit (native macOS framework)
 - **Transport**: stdio
@@ -300,6 +300,7 @@ If ambiguity is detected, the error message will list all available sources.
 
 | Version | Changes |
 |---------|---------|
+| v0.7.0 | **Tool annotations** for Anthropic Connectors Directory, auto-refresh mechanism, improved batch tool descriptions |
 | v0.6.0 | **Source disambiguation**: `calendar_source` parameter for same-name calendars |
 | v0.5.0 | Batch delete, duplicate detection, multi-keyword search, improved permission errors, PRIVACY.md |
 | v0.4.0 | Copy/move events: `copy_event`, `move_events_batch` |

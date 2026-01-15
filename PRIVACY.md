@@ -91,5 +91,5 @@ For questions or concerns about privacy, please open an issue on the project's G
 
 ---
 
-*Last updated: 2026-01-14*
-*Version: 0.5.0*
+*Last updated: 2026-01-15*
+*Version: 0.7.0*

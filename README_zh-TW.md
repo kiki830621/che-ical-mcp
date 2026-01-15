@@ -287,7 +287,7 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 
 ## 技術細節
 
-- **目前版本**：v0.6.0
+- **目前版本**：v0.7.0
 - **框架**：[MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.10.0
 - **行事曆 API**：EventKit（原生 macOS 框架）
 - **傳輸**：stdio
@@ -300,6 +300,7 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 
 | 版本 | 變更 |
 |------|------|
+| v0.7.0 | **工具標註**：支援 Anthropic Connectors Directory、自動刷新機制、改進批次工具說明 |
 | v0.6.0 | **來源消歧義**：`calendar_source` 參數支援同名日曆區分 |
 | v0.5.0 | 批次刪除、重複偵測、多關鍵字搜尋、改善權限錯誤、新增 PRIVACY.md |
 | v0.4.0 | 事件複製/移動：`copy_event`、`move_events_batch` |
