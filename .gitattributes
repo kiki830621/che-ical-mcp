@@ -1,0 +1,4 @@
+# Binary files - use Git LFS
+*.mcpb filter=lfs diff=lfs merge=lfs -text
+mcpb/server/* filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text binary
