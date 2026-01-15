@@ -63,7 +63,10 @@ mkdir -p ~/bin
 curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o ~/bin/CheICalMCP
 chmod +x ~/bin/CheICalMCP
 
-# Add to Claude Code (user scope = available in all projects)
+# Add to Claude Code
+# --scope user    : available across all projects (stored in ~/.claude.json)
+# --transport stdio: local binary execution via stdin/stdout
+# --              : separator between claude options and the command
 claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 ```
 

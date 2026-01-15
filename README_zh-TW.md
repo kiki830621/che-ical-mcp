@@ -63,7 +63,10 @@ mkdir -p ~/bin
 curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o ~/bin/CheICalMCP
 chmod +x ~/bin/CheICalMCP
 
-# 加入 Claude Code（user scope = 所有專案都可使用）
+# 加入 Claude Code
+# --scope user    : 跨所有專案可用（存在 ~/.claude.json）
+# --transport stdio: 本地 binary 執行，透過 stdin/stdout
+# --              : 分隔 claude 選項和實際執行的命令
 claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 ```
 
