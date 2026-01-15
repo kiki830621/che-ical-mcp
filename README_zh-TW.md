@@ -56,13 +56,18 @@
 ### Claude Code (CLI)
 
 ```bash
-# 下載最新版本
-curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o /usr/local/bin/che-ical-mcp
-chmod +x /usr/local/bin/che-ical-mcp
+# 建立 ~/bin（如果不存在）
+mkdir -p ~/bin
 
-# 加入 Claude Code
-claude mcp add che-ical-mcp /usr/local/bin/che-ical-mcp
+# 下載最新版本
+curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o ~/bin/CheICalMCP
+chmod +x ~/bin/CheICalMCP
+
+# 加入 Claude Code（user scope = 所有專案都可使用）
+claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 ```
+
+> **💡 提示：** 請將 binary 安裝到本機目錄如 `~/bin/`。避免放在雲端同步資料夾（Dropbox、iCloud、OneDrive），否則檔案同步可能造成 MCP 連線逾時。
 
 ### 從原始碼編譯（可選）
 
@@ -171,12 +176,15 @@ swift build -c release
 ### Claude Code (CLI)
 
 ```bash
-# 下載執行檔
-curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o /usr/local/bin/che-ical-mcp
-chmod +x /usr/local/bin/che-ical-mcp
+# 建立 ~/bin（如果不存在）
+mkdir -p ~/bin
 
-# 註冊到 Claude Code
-claude mcp add che-ical-mcp /usr/local/bin/che-ical-mcp
+# 下載執行檔
+curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o ~/bin/CheICalMCP
+chmod +x ~/bin/CheICalMCP
+
+# 註冊到 Claude Code（user scope = 所有專案都可使用）
+claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 ```
 
 ### 從原始碼編譯（可選）
@@ -186,8 +194,9 @@ git clone https://github.com/kiki830621/che-ical-mcp.git
 cd che-ical-mcp
 swift build -c release
 
-# Claude Code
-claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
+# 複製到 ~/bin 並註冊
+cp .build/release/CheICalMCP ~/bin/
+claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 ```
 
 ### 授予權限

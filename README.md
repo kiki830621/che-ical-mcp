@@ -56,13 +56,18 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ### For Claude Code (CLI)
 
 ```bash
-# Download the latest release
-curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o /usr/local/bin/che-ical-mcp
-chmod +x /usr/local/bin/che-ical-mcp
+# Create ~/bin if needed
+mkdir -p ~/bin
 
-# Add to Claude Code
-claude mcp add che-ical-mcp /usr/local/bin/che-ical-mcp
+# Download the latest release
+curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o ~/bin/CheICalMCP
+chmod +x ~/bin/CheICalMCP
+
+# Add to Claude Code (user scope = available in all projects)
+claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 ```
+
+> **💡 Tip:** Always install the binary to a local directory like `~/bin/`. Avoid placing it in cloud-synced folders (Dropbox, iCloud, OneDrive) as file sync operations can cause MCP connection timeouts.
 
 ### Build from Source (Optional)
 
@@ -171,12 +176,15 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 ### For Claude Code (CLI)
 
 ```bash
-# Download the binary
-curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o /usr/local/bin/che-ical-mcp
-chmod +x /usr/local/bin/che-ical-mcp
+# Create ~/bin if needed
+mkdir -p ~/bin
 
-# Register with Claude Code
-claude mcp add che-ical-mcp /usr/local/bin/che-ical-mcp
+# Download the binary
+curl -L https://github.com/kiki830621/che-ical-mcp/releases/latest/download/CheICalMCP -o ~/bin/CheICalMCP
+chmod +x ~/bin/CheICalMCP
+
+# Register with Claude Code (user scope = available in all projects)
+claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 ```
 
 ### Build from Source (Optional)
@@ -186,8 +194,9 @@ git clone https://github.com/kiki830621/che-ical-mcp.git
 cd che-ical-mcp
 swift build -c release
 
-# For Claude Code
-claude mcp add che-ical-mcp "$(pwd)/.build/release/CheICalMCP"
+# Copy to ~/bin and register
+cp .build/release/CheICalMCP ~/bin/
+claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 ```
 
 ### Grant Permissions
