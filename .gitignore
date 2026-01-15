@@ -16,11 +16,8 @@ wheels/
 .vscode
 .DS_Store
 
-# MCPB
-# Built binary (generated during build)
-mcpb/server/
-# Packed MCPB bundle
-*.mcpb
+# MCPB package (generated, rebuild via scripts/build-mcpb.sh)
+mcpb/*.mcpb
 
 # Private docs (not for public repo)
 docs/private/
