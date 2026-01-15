@@ -143,7 +143,7 @@ class CheICalMCPServer {
                         "notes": .object(["type": .string("string"), "description": .string("Optional event notes")]),
                         "location": .object(["type": .string("string"), "description": .string("Optional event location")]),
                         "url": .object(["type": .string("string"), "description": .string("Optional event URL")]),
-                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name")]),
+                        "calendar_name": .object(["type": .string("string"), "description": .string("Target calendar name (use list_calendars to see available options)")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")]),
                         "all_day": .object(["type": .string("boolean"), "description": .string("Whether this is an all-day event")]),
                         "alarms_minutes_offsets": .object([
@@ -152,7 +152,7 @@ class CheICalMCPServer {
                             "description": .string("List of minutes before the event to trigger reminders")
                         ])
                     ]),
-                    "required": .array([.string("title"), .string("start_time"), .string("end_time")])
+                    "required": .array([.string("title"), .string("start_time"), .string("end_time"), .string("calendar_name")])
                 ]),
                 annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
             ),
@@ -213,10 +213,10 @@ class CheICalMCPServer {
                         "notes": .object(["type": .string("string"), "description": .string("Optional notes")]),
                         "due_date": .object(["type": .string("string"), "description": .string("Optional due date in ISO8601 format")]),
                         "priority": .object(["type": .string("integer"), "description": .string("Priority: 0=none, 1=high, 5=medium, 9=low")]),
-                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional reminder list name")]),
+                        "calendar_name": .object(["type": .string("string"), "description": .string("Target reminder list name (use list_calendars with type='reminder' to see available options)")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")])
                     ]),
-                    "required": .array([.string("title")])
+                    "required": .array([.string("title"), .string("calendar_name")])
                 ]),
                 annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
             ),
@@ -335,11 +335,11 @@ class CheICalMCPServer {
                                     "end_time": .object(["type": .string("string")]),
                                     "notes": .object(["type": .string("string")]),
                                     "location": .object(["type": .string("string")]),
-                                    "calendar_name": .object(["type": .string("string")]),
+                                    "calendar_name": .object(["type": .string("string"), "description": .string("Target calendar name (required)")]),
                                     "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google')")]),
                                     "all_day": .object(["type": .string("boolean")])
                                 ]),
-                                "required": .array([.string("title"), .string("start_time"), .string("end_time")])
+                                "required": .array([.string("title"), .string("start_time"), .string("end_time"), .string("calendar_name")])
                             ])
                         ])
                     ]),

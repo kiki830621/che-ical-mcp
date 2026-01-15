@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-01-16
+
+### Changed
+- **BREAKING**: `calendar_name` is now **required** for `create_event`, `create_events_batch`, and `create_reminder`
+- Removed implicit default calendar behavior to prevent events being saved to unexpected calendars
+- Improved error messages guide users to use `list_calendars` to see available options
+
+### Why This Change
+Previously, if `calendar_name` was not specified, events/reminders would be saved to the system's default calendar. This caused confusion when users had multiple accounts (iCloud, Google, Exchange) and didn't know where their data went. Now the API explicitly requires specifying the target calendar.
+
+---
+
 ## [0.7.0] - 2026-01-15
 
 ### Added

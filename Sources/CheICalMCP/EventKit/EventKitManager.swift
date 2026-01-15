@@ -236,12 +236,11 @@ actor EventKitManager {
             event.url = eventURL
         }
 
-        // Set calendar
-        if let name = calendarName {
-            event.calendar = try findCalendar(name: name, source: calendarSource, entityType: .event)
-        } else {
-            event.calendar = eventStore.defaultCalendarForNewEvents
+        // Set calendar (required)
+        guard let name = calendarName else {
+            throw EventKitError.calendarNameRequired(forType: "events")
         }
+        event.calendar = try findCalendar(name: name, source: calendarSource, entityType: .event)
 
         // Add alarms
         if let offsets = alarmOffsets {
@@ -642,13 +641,12 @@ actor EventKitManager {
             )
         }
 
-        // Set calendar
-        if let name = calendarName {
-            let calendar = try findCalendar(name: name, source: calendarSource, entityType: .reminder)
-            reminder.calendar = calendar
-        } else {
-            reminder.calendar = eventStore.defaultCalendarForNewReminders()
+        // Set calendar (required)
+        guard let name = calendarName else {
+            throw EventKitError.calendarNameRequired(forType: "reminders")
         }
+        let calendar = try findCalendar(name: name, source: calendarSource, entityType: .reminder)
+        reminder.calendar = calendar
 
         // Add alarms
         if let offsets = alarmOffsets {
@@ -823,6 +821,7 @@ enum EventKitError: LocalizedError {
     case multipleCalendarsFound(name: String, sources: String)
     case eventNotFound(identifier: String)
     case reminderNotFound(identifier: String)
+    case calendarNameRequired(forType: String)
 
     var errorDescription: String? {
         switch self {
@@ -847,6 +846,8 @@ enum EventKitError: LocalizedError {
             return "Event not found: \(id)"
         case .reminderNotFound(let id):
             return "Reminder not found: \(id)"
+        case .calendarNameRequired(let type):
+            return "calendar_name is required for creating \(type). Use list_calendars to see available options."
         }
     }
 }
