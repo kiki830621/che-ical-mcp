@@ -29,8 +29,8 @@ class CheICalMCPServer {
 
         // Create server with tools capability
         server = Server(
-            name: "che-ical-mcp",
-            version: "0.6.0",
+            name: AppVersion.name,
+            version: AppVersion.current,
             capabilities: .init(tools: .init())
         )
 
@@ -106,17 +106,17 @@ class CheICalMCPServer {
             // Event Tools
             Tool(
                 name: "list_events",
-                description: "List calendar events in a date range. Use ISO8601 format for dates.",
+                description: "List calendar events in a date range. Use ISO8601 format with timezone (e.g., 2026-01-30T00:00:00+08:00).",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
                         "start_date": .object([
                             "type": .string("string"),
-                            "description": .string("Start date in ISO8601 format (YYYY-MM-DDTHH:MM:SS)")
+                            "description": .string("Start date in ISO8601 format with timezone (e.g., 2026-01-30T00:00:00+08:00)")
                         ]),
                         "end_date": .object([
                             "type": .string("string"),
-                            "description": .string("End date in ISO8601 format (YYYY-MM-DDTHH:MM:SS)")
+                            "description": .string("End date in ISO8601 format with timezone (e.g., 2026-01-30T23:59:59+08:00)")
                         ]),
                         "calendar_name": .object([
                             "type": .string("string"),
@@ -138,8 +138,8 @@ class CheICalMCPServer {
                     "type": .string("object"),
                     "properties": .object([
                         "title": .object(["type": .string("string"), "description": .string("Event title")]),
-                        "start_time": .object(["type": .string("string"), "description": .string("Start time in ISO8601 format")]),
-                        "end_time": .object(["type": .string("string"), "description": .string("End time in ISO8601 format")]),
+                        "start_time": .object(["type": .string("string"), "description": .string("Start time in ISO8601 format with timezone (e.g., 2026-01-30T14:00:00+08:00)")]),
+                        "end_time": .object(["type": .string("string"), "description": .string("End time in ISO8601 format with timezone (e.g., 2026-01-30T15:00:00+08:00)")]),
                         "notes": .object(["type": .string("string"), "description": .string("Optional event notes")]),
                         "location": .object(["type": .string("string"), "description": .string("Optional event location")]),
                         "url": .object(["type": .string("string"), "description": .string("Optional event URL")]),
@@ -211,7 +211,7 @@ class CheICalMCPServer {
                     "properties": .object([
                         "title": .object(["type": .string("string"), "description": .string("Reminder title")]),
                         "notes": .object(["type": .string("string"), "description": .string("Optional notes")]),
-                        "due_date": .object(["type": .string("string"), "description": .string("Optional due date in ISO8601 format")]),
+                        "due_date": .object(["type": .string("string"), "description": .string("Optional due date in ISO8601 format with timezone (e.g., 2026-01-30T17:00:00+08:00)")]),
                         "priority": .object(["type": .string("integer"), "description": .string("Priority: 0=none, 1=high, 5=medium, 9=low")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Target reminder list name (use list_calendars with type='reminder' to see available options)")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")])
@@ -284,8 +284,8 @@ class CheICalMCPServer {
                             "enum": .array([.string("any"), .string("all")]),
                             "description": .string("'any' = OR (matches if ANY keyword found, default), 'all' = AND (matches only if ALL keywords found)")
                         ]),
-                        "start_date": .object(["type": .string("string"), "description": .string("Optional start date in ISO8601 format to limit search range")]),
-                        "end_date": .object(["type": .string("string"), "description": .string("Optional end date in ISO8601 format to limit search range")]),
+                        "start_date": .object(["type": .string("string"), "description": .string("Optional start date in ISO8601 format with timezone (e.g., 2026-01-01T00:00:00+08:00)")]),
+                        "end_date": .object(["type": .string("string"), "description": .string("Optional end date in ISO8601 format with timezone (e.g., 2026-12-31T23:59:59+08:00)")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")])
                     ])
@@ -355,8 +355,8 @@ class CheICalMCPServer {
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
-                        "start_time": .object(["type": .string("string"), "description": .string("Start time to check in ISO8601 format")]),
-                        "end_time": .object(["type": .string("string"), "description": .string("End time to check in ISO8601 format")]),
+                        "start_time": .object(["type": .string("string"), "description": .string("Start time to check in ISO8601 format with timezone (e.g., 2026-01-30T14:00:00+08:00)")]),
+                        "end_time": .object(["type": .string("string"), "description": .string("End time to check in ISO8601 format with timezone (e.g., 2026-01-30T15:00:00+08:00)")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")]),
                         "exclude_event_id": .object(["type": .string("string"), "description": .string("Optional event ID to exclude from check (useful for updates)")])
@@ -440,11 +440,11 @@ class CheICalMCPServer {
                         ]),
                         "start_date": .object([
                             "type": .string("string"),
-                            "description": .string("Start date in ISO8601 format (required)")
+                            "description": .string("Start date in ISO8601 format with timezone (e.g., 2026-01-01T00:00:00+08:00)")
                         ]),
                         "end_date": .object([
                             "type": .string("string"),
-                            "description": .string("End date in ISO8601 format (required)")
+                            "description": .string("End date in ISO8601 format with timezone (e.g., 2026-12-31T23:59:59+08:00)")
                         ]),
                         "tolerance_minutes": .object([
                             "type": .string("integer"),
