@@ -158,16 +158,17 @@ class CheICalMCPServer {
             ),
             Tool(
                 name: "update_event",
-                description: "Update an existing calendar event.",
+                description: "Update an existing calendar event. When changing the event date, providing only start_time will automatically preserve the original duration.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
                         "event_id": .object(["type": .string("string"), "description": .string("The event identifier")]),
                         "title": .object(["type": .string("string"), "description": .string("New title")]),
-                        "start_time": .object(["type": .string("string"), "description": .string("New start time")]),
-                        "end_time": .object(["type": .string("string"), "description": .string("New end time")]),
+                        "start_time": .object(["type": .string("string"), "description": .string("New start time in ISO8601 format (e.g., 2026-01-31T14:00:00+08:00). If only start_time is provided, the event duration is preserved automatically.")]),
+                        "end_time": .object(["type": .string("string"), "description": .string("New end time in ISO8601 format (e.g., 2026-01-31T15:00:00+08:00). Provide this if you want to change the event duration.")]),
                         "notes": .object(["type": .string("string"), "description": .string("New notes")]),
                         "location": .object(["type": .string("string"), "description": .string("New location")]),
+                        "all_day": .object(["type": .string("boolean"), "description": .string("Set to true for all-day events, false for timed events")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Move event to a different calendar")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")])
                     ]),

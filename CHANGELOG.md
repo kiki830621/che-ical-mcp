@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-01-25
+
+### Fixed
+- **Critical: `update_event` time validation bug** - Fixed an issue where updating only `start_time` without `end_time` could result in an invalid event state (startDate > endDate), causing the event to become unsearchable or invisible in the calendar
+- When only `start_time` is provided, the event's original duration is now automatically preserved
+- Added explicit validation to reject events where start time is not before end time (for non-all-day events)
+
+### Added
+- New error type `invalidTimeRange` for clearer error messages when time validation fails
+- Improved `update_event` tool description with clearer documentation about time handling
+- Added `all_day` parameter to `update_event` tool for converting between timed and all-day events
+- Unit test framework with time validation tests
+
+### Technical Details
+The bug occurred because `startDate` and `endDate` were updated independently. When moving an event from Jan 25 to Jan 31 with only `start_time`, the event would have:
+- `startDate`: Jan 31, 14:00
+- `endDate`: Jan 25, 15:00 (unchanged from original)
+
+This invalid state caused EventKit to handle the event incorrectly. The fix preserves the original event duration when only the start time changes.
+
+---
+
 ## [0.8.0] - 2026-01-16
 
 ### Changed

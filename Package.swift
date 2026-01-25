@@ -16,6 +16,11 @@ let package = Package(
                 .product(name: "MCP", package: "swift-sdk")
             ],
             path: "Sources/CheICalMCP"
+        ),
+        .testTarget(
+            name: "CheICalMCPTests",
+            dependencies: ["CheICalMCP"],
+            path: "Tests/CheICalMCPTests"
         )
     ]
 )

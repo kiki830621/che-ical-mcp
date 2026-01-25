@@ -281,8 +281,31 @@ actor EventKitManager {
         }
 
         if let t = title { event.title = t }
-        if let s = startDate { event.startDate = s }
-        if let e = endDate { event.endDate = e }
+
+        // Handle time updates carefully to prevent invalid state (startDate > endDate)
+        // When only startDate is provided, preserve the original duration
+        if let newStart = startDate {
+            let originalDuration = event.endDate.timeIntervalSince(event.startDate)
+            event.startDate = newStart
+            if endDate == nil {
+                // Preserve original event duration when only start time changes
+                event.endDate = newStart.addingTimeInterval(originalDuration)
+            }
+        }
+        if let newEnd = endDate {
+            event.endDate = newEnd
+        }
+
+        // Validate time range
+        if event.startDate >= event.endDate && !event.isAllDay {
+            let dateFormatter = ISO8601DateFormatter()
+            let startStr = dateFormatter.string(from: event.startDate)
+            let endStr = dateFormatter.string(from: event.endDate)
+            throw EventKitError.invalidTimeRange(
+                message: "Start time (\(startStr)) must be before end time (\(endStr)). When changing the date, provide both start_time and end_time."
+            )
+        }
+
         if let n = notes { event.notes = n }
         if let l = location { event.location = l }
         if let a = isAllDay { event.isAllDay = a }
@@ -822,6 +845,7 @@ enum EventKitError: LocalizedError {
     case eventNotFound(identifier: String)
     case reminderNotFound(identifier: String)
     case calendarNameRequired(forType: String)
+    case invalidTimeRange(message: String)
 
     var errorDescription: String? {
         switch self {
@@ -848,6 +872,8 @@ enum EventKitError: LocalizedError {
             return "Reminder not found: \(id)"
         case .calendarNameRequired(let type):
             return "calendar_name is required for creating \(type). Use list_calendars to see available options."
+        case .invalidTimeRange(let message):
+            return "Invalid time range: \(message)"
         }
     }
 }
