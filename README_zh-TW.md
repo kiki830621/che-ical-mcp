@@ -206,6 +206,32 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 
 首次使用時，macOS 會詢問**行事曆**和**提醒事項**存取權限。請點選**允許**。
 
+> **⚠️ macOS Sequoia (15.x) 注意事項：** 權限對話框會歸屬於**啟動 MCP server 的父程序**，而非 binary 本身。這代表：
+>
+> | 環境 | 權限歸屬 |
+> |------|----------|
+> | Claude Desktop | Claude Desktop.app ✅（自動彈出） |
+> | Claude Code 在 **Terminal.app** | Terminal.app ✅（自動彈出） |
+> | Claude Code 在 **VS Code** | VS Code ❌（可能不會彈出） |
+> | Claude Code 在 **iTerm2** | iTerm2 ✅（自動彈出） |
+>
+> **如果權限對話框沒有出現**（VS Code 常見問題），需要在 VS Code 的 Info.plist 加入行事曆使用說明：
+>
+> ```bash
+> # 加入行事曆使用說明到 VS Code
+> /usr/libexec/PlistBuddy -c "Add :NSCalendarsFullAccessUsageDescription string 'VS Code needs calendar access for MCP extensions.'" \
+>   "/Applications/Visual Studio Code.app/Contents/Info.plist"
+> /usr/libexec/PlistBuddy -c "Add :NSRemindersFullAccessUsageDescription string 'VS Code needs reminders access for MCP extensions.'" \
+>   "/Applications/Visual Studio Code.app/Contents/Info.plist"
+>
+> # 重新簽名 VS Code（修改 Info.plist 後必須執行）
+> codesign -s - -f --deep "/Applications/Visual Studio Code.app"
+>
+> # 重新啟動 VS Code，權限對話框就會出現
+> ```
+>
+> **注意：** VS Code 更新時此修改會被覆蓋，需要在每次更新後重新執行。
+
 ---
 
 ## 使用範例
@@ -279,7 +305,8 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 | 問題 | 解決方法 |
 |------|----------|
 | Server disconnected | 重新編譯 `swift build -c release` |
-| 權限被拒絕 | 在系統設定 > 隱私權中授予行事曆/提醒事項存取權限 |
+| 權限被拒絕 | 在系統設定 > 隱私權與安全性中授予行事曆/提醒事項存取權限 |
+| 權限對話框沒有出現 | 參考[授予權限](#授予權限)中的 macOS Sequoia 解決方案 |
 | 找不到行事曆 | 確認行事曆在 macOS 行事曆 App 中可見 |
 | 提醒事項未同步 | 在系統設定中檢查 iCloud 同步 |
 

@@ -206,6 +206,32 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 
 On first use, macOS will prompt for **Calendar** and **Reminders** access. Click **Allow** for both.
 
+> **⚠️ macOS Sequoia (15.x) Note:** The permission dialog is attributed to the **parent application** that launched the MCP server, not the binary itself. This means:
+>
+> | Environment | Permission Attributed To |
+> |-------------|------------------------|
+> | Claude Desktop | Claude Desktop.app ✅ (works automatically) |
+> | Claude Code in **Terminal.app** | Terminal.app ✅ (works automatically) |
+> | Claude Code in **VS Code** | VS Code ❌ (may not show dialog) |
+> | Claude Code in **iTerm2** | iTerm2 ✅ (works automatically) |
+>
+> **If the permission dialog doesn't appear** (common with VS Code), you need to add `NSCalendarsFullAccessUsageDescription` to VS Code's Info.plist:
+>
+> ```bash
+> # Add calendar usage description to VS Code
+> /usr/libexec/PlistBuddy -c "Add :NSCalendarsFullAccessUsageDescription string 'VS Code needs calendar access for MCP extensions.'" \
+>   "/Applications/Visual Studio Code.app/Contents/Info.plist"
+> /usr/libexec/PlistBuddy -c "Add :NSRemindersFullAccessUsageDescription string 'VS Code needs reminders access for MCP extensions.'" \
+>   "/Applications/Visual Studio Code.app/Contents/Info.plist"
+>
+> # Re-sign VS Code (required after Info.plist modification)
+> codesign -s - -f --deep "/Applications/Visual Studio Code.app"
+>
+> # Restart VS Code, then the permission dialog will appear
+> ```
+>
+> **Note:** This modification will be overwritten when VS Code updates. You'll need to re-apply it after each VS Code update.
+
 ---
 
 ## Usage Examples
@@ -279,7 +305,8 @@ If ambiguity is detected, the error message will list all available sources.
 | Problem | Solution |
 |---------|----------|
 | Server disconnected | Rebuild with `swift build -c release` |
-| Permission denied | Grant Calendar/Reminders access in System Settings > Privacy |
+| Permission denied | Grant Calendar/Reminders access in System Settings > Privacy & Security |
+| Permission dialog never appears | See [Grant Permissions](#grant-permissions) for macOS Sequoia workaround |
 | Calendar not found | Ensure the calendar is visible in macOS Calendar app |
 | Reminders not syncing | Check iCloud sync in System Settings |
 

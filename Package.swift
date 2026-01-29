@@ -15,7 +15,16 @@ let package = Package(
             dependencies: [
                 .product(name: "MCP", package: "swift-sdk")
             ],
-            path: "Sources/CheICalMCP"
+            path: "Sources/CheICalMCP",
+            exclude: ["Info.plist"],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker", "-sectcreate",
+                    "-Xlinker", "__TEXT",
+                    "-Xlinker", "__info_plist",
+                    "-Xlinker", "Sources/CheICalMCP/Info.plist"
+                ])
+            ]
         ),
         .testTarget(
             name: "CheICalMCPTests",
