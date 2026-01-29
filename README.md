@@ -287,8 +287,8 @@ If ambiguity is detected, the error message will list all available sources.
 
 ## Technical Details
 
-- **Current Version**: v0.8.0
-- **Framework**: [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.10.0
+- **Current Version**: v0.8.2
+- **Framework**: [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.10.2
 - **Calendar API**: EventKit (native macOS framework)
 - **Transport**: stdio
 - **Platform**: macOS 13.0+ (Ventura and later)
@@ -300,6 +300,8 @@ If ambiguity is detected, the error message will list all available sources.
 
 | Version | Changes |
 |---------|---------|
+| v0.8.2 | **i18n week support**: `week_starts_on` parameter for `list_events_quick` (monday/sunday/saturday/system) |
+| v0.8.1 | **Fix**: `update_event` time validation bug, duration preservation when moving events |
 | v0.8.0 | **BREAKING**: `calendar_name` now required for create operations (no more implicit defaults) |
 | v0.7.0 | **Tool annotations** for Anthropic Connectors Directory, auto-refresh mechanism, improved batch tool descriptions |
 | v0.6.0 | **Source disambiguation**: `calendar_source` parameter for same-name calendars |

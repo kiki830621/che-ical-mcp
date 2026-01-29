@@ -287,8 +287,8 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 
 ## 技術細節
 
-- **目前版本**：v0.8.0
-- **框架**：[MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.10.0
+- **目前版本**：v0.8.2
+- **框架**：[MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.10.2
 - **行事曆 API**：EventKit（原生 macOS 框架）
 - **傳輸**：stdio
 - **平台**：macOS 13.0+（Ventura 及更新版本）
@@ -300,6 +300,8 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 
 | 版本 | 變更 |
 |------|------|
+| v0.8.2 | **國際化週支援**：`list_events_quick` 新增 `week_starts_on` 參數（monday/sunday/saturday/system） |
+| v0.8.1 | **修復**：`update_event` 時間驗證 Bug，移動事件時自動保留持續時間 |
 | v0.8.0 | **重大變更**：`calendar_name` 現在是建立操作的必填欄位（移除隱式默認） |
 | v0.7.0 | **工具標註**：支援 Anthropic Connectors Directory、自動刷新機制、改進批次工具說明 |
 | v0.6.0 | **來源消歧義**：`calendar_source` 參數支援同名日曆區分 |
