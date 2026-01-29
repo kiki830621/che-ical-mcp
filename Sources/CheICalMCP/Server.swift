@@ -297,7 +297,7 @@ class CheICalMCPServer {
             // Feature 3: Quick Time Range
             Tool(
                 name: "list_events_quick",
-                description: "List events with quick time range shortcuts.",
+                description: "List events with quick time range shortcuts. Supports international week definitions.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
@@ -309,6 +309,13 @@ class CheICalMCPServer {
                                 .string("this_month"), .string("next_7_days"), .string("next_30_days")
                             ]),
                             "description": .string("Quick time range shortcut")
+                        ]),
+                        "week_starts_on": .object([
+                            "type": .string("string"),
+                            "enum": .array([
+                                .string("system"), .string("monday"), .string("sunday"), .string("saturday")
+                            ]),
+                            "description": .string("First day of week for this_week/next_week calculations. 'system' uses locale settings (default), 'monday' for ISO 8601/Europe/Asia, 'sunday' for US/Japan, 'saturday' for Middle East.")
                         ]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Optional calendar name to filter by")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")])
@@ -897,7 +904,8 @@ class CheICalMCPServer {
             throw ToolError.invalidParameter("range is required")
         }
 
-        let (startDate, endDate) = getDateRange(for: range)
+        let weekStartsOn = arguments["week_starts_on"]?.stringValue ?? "system"
+        let (startDate, endDate, effectiveWeekStart) = getDateRange(for: range, weekStartsOn: weekStartsOn)
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
 
@@ -928,7 +936,7 @@ class CheICalMCPServer {
         }
 
         // Include the computed date range in response
-        let response: [String: Any] = [
+        var response: [String: Any] = [
             "range": range,
             "start_date": dateFormatter.string(from: startDate),
             "start_date_local": localDateFormatter.string(from: startDate),
@@ -937,6 +945,10 @@ class CheICalMCPServer {
             "timezone": TimeZone.current.identifier,
             "events": result
         ]
+        // Include week_starts_on info for this_week/next_week ranges
+        if range == "this_week" || range == "next_week" {
+            response["week_starts_on"] = effectiveWeekStart
+        }
         return formatJSON(response)
     }
 
@@ -1239,34 +1251,60 @@ class CheICalMCPServer {
     // MARK: - Helpers
 
     /// Get date range for quick time shortcuts
-    private func getDateRange(for shortcut: String) -> (start: Date, end: Date) {
-        let calendar = Calendar.current
+    /// - Parameters:
+    ///   - shortcut: The time range shortcut (today, this_week, etc.)
+    ///   - weekStartsOn: First day of week setting ("system", "monday", "sunday", "saturday")
+    /// - Returns: Tuple of (start date, end date, effective week start day name)
+    private func getDateRange(for shortcut: String, weekStartsOn: String = "system") -> (start: Date, end: Date, effectiveWeekStart: String) {
+        var calendar = Calendar.current
         let now = Date()
         let startOfToday = calendar.startOfDay(for: now)
 
+        // Determine effective first weekday
+        let effectiveWeekStart: String
+        switch weekStartsOn {
+        case "monday":
+            calendar.firstWeekday = 2
+            effectiveWeekStart = "monday"
+        case "sunday":
+            calendar.firstWeekday = 1
+            effectiveWeekStart = "sunday"
+        case "saturday":
+            calendar.firstWeekday = 7
+            effectiveWeekStart = "saturday"
+        default: // "system"
+            // Keep system default (Calendar.current.firstWeekday)
+            switch calendar.firstWeekday {
+            case 1: effectiveWeekStart = "sunday"
+            case 2: effectiveWeekStart = "monday"
+            case 7: effectiveWeekStart = "saturday"
+            default: effectiveWeekStart = "day_\(calendar.firstWeekday)"
+            }
+        }
+
         switch shortcut {
         case "today":
-            return (startOfToday, calendar.date(byAdding: .day, value: 1, to: startOfToday)!)
+            return (startOfToday, calendar.date(byAdding: .day, value: 1, to: startOfToday)!, effectiveWeekStart)
         case "tomorrow":
             let tomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday)!
-            return (tomorrow, calendar.date(byAdding: .day, value: 1, to: tomorrow)!)
+            return (tomorrow, calendar.date(byAdding: .day, value: 1, to: tomorrow)!, effectiveWeekStart)
         case "this_week":
             let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
-            return (weekStart, calendar.date(byAdding: .day, value: 7, to: weekStart)!)
+            return (weekStart, calendar.date(byAdding: .day, value: 7, to: weekStart)!, effectiveWeekStart)
         case "next_week":
             let thisWeekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
             let nextWeekStart = calendar.date(byAdding: .weekOfYear, value: 1, to: thisWeekStart)!
-            return (nextWeekStart, calendar.date(byAdding: .day, value: 7, to: nextWeekStart)!)
+            return (nextWeekStart, calendar.date(byAdding: .day, value: 7, to: nextWeekStart)!, effectiveWeekStart)
         case "this_month":
             let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now))!
-            return (monthStart, calendar.date(byAdding: .month, value: 1, to: monthStart)!)
+            return (monthStart, calendar.date(byAdding: .month, value: 1, to: monthStart)!, effectiveWeekStart)
         case "next_7_days":
-            return (startOfToday, calendar.date(byAdding: .day, value: 7, to: startOfToday)!)
+            return (startOfToday, calendar.date(byAdding: .day, value: 7, to: startOfToday)!, effectiveWeekStart)
         case "next_30_days":
-            return (startOfToday, calendar.date(byAdding: .day, value: 30, to: startOfToday)!)
+            return (startOfToday, calendar.date(byAdding: .day, value: 30, to: startOfToday)!, effectiveWeekStart)
         default:
             // Default to today
-            return (startOfToday, calendar.date(byAdding: .day, value: 1, to: startOfToday)!)
+            return (startOfToday, calendar.date(byAdding: .day, value: 1, to: startOfToday)!, effectiveWeekStart)
         }
     }
 

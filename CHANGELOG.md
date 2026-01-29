@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-01-30
+
+### Fixed
+- **Critical: `this_week`/`next_week` week boundary calculation** - Fixed an issue where week calculations depended on system locale, causing incorrect results for users with different cultural conventions for first day of week
+
+### Added
+- **New `week_starts_on` parameter for `list_events_quick`** - Supports international week definitions:
+  - `system` (default): Uses system locale settings
+  - `monday`: ISO 8601 standard (Europe, Asia)
+  - `sunday`: US, Japan convention
+  - `saturday`: Middle East convention
+- Response now includes `week_starts_on` field showing the effective week start day used
+- Unit tests for week calculation with different firstWeekday settings
+
+### Changed
+- Updated MCP Swift SDK dependency to 0.10.2 (strict concurrency improvements)
+
+### Technical Details
+Previously, `this_week` and `next_week` used `Calendar.current.firstWeekday` without explicit control. This caused:
+- Users expecting Monday-start weeks (ISO 8601) to get Sunday-start results on US-locale systems
+- Inconsistent behavior depending on system locale
+
+The fix allows explicit control while defaulting to system locale for backwards compatibility.
+
+---
+
 ## [0.8.1] - 2026-01-25
 
 ### Fixed
