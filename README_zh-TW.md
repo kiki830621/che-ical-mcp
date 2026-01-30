@@ -84,16 +84,17 @@ swift build -c release
 
 ---
 
-## 全部 20 個工具
+## 全部 24 個工具
 
 <details>
-<summary><b>行事曆 (3)</b></summary>
+<summary><b>行事曆 (4)</b></summary>
 
 | 工具 | 說明 |
 |------|------|
 | `list_calendars` | 列出所有行事曆和提醒事項清單 |
 | `create_calendar` | 建立新行事曆 |
 | `delete_calendar` | 刪除行事曆 |
+| `update_calendar` | 重新命名行事曆或更改顏色（v0.9.0） |
 
 </details>
 
@@ -110,7 +111,7 @@ swift build -c release
 </details>
 
 <details>
-<summary><b>提醒事項 (5)</b></summary>
+<summary><b>提醒事項 (6)</b></summary>
 
 | 工具 | 說明 |
 |------|------|
@@ -119,11 +120,12 @@ swift build -c release
 | `update_reminder` | 更新提醒事項 |
 | `complete_reminder` | 標記為已完成/未完成 |
 | `delete_reminder` | 刪除提醒事項 |
+| `search_reminders` | 多關鍵字搜尋提醒事項，支援 AND/OR 匹配（v0.9.0） |
 
 </details>
 
 <details>
-<summary><b>進階功能 (8)</b> ✨ v0.3.0+ 新增</summary>
+<summary><b>進階功能 (10)</b> ✨ v0.3.0+ 新增</summary>
 
 | 工具 | 說明 |
 |------|------|
@@ -135,6 +137,8 @@ swift build -c release
 | `move_events_batch` | 批次移動事件到另一個日曆 |
 | `delete_events_batch` | 批次刪除多個事件（v0.5.0） |
 | `find_duplicate_events` | 跨日曆查找重複事件（v0.5.0） |
+| `create_reminders_batch` | 一次建立多個提醒事項（v0.9.0） |
+| `delete_reminders_batch` | 批次刪除多個提醒事項（v0.9.0） |
 
 </details>
 
@@ -314,12 +318,12 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 
 ## 技術細節
 
-- **目前版本**：v0.8.2
+- **目前版本**：v0.9.0
 - **框架**：[MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.10.2
 - **行事曆 API**：EventKit（原生 macOS 框架）
 - **傳輸**：stdio
 - **平台**：macOS 13.0+（Ventura 及更新版本）
-- **工具數量**：20 個工具，涵蓋行事曆、事件、提醒事項和進階操作
+- **工具數量**：24 個工具，涵蓋行事曆、事件、提醒事項和進階操作
 
 ---
 
@@ -327,6 +331,7 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 
 | 版本 | 變更 |
 |------|------|
+| v0.9.0 | **4 個新工具**（20→24）：`update_calendar`、`search_reminders`、`create_reminders_batch`、`delete_reminders_batch` |
 | v0.8.2 | **國際化週支援**：`list_events_quick` 新增 `week_starts_on` 參數（monday/sunday/saturday/system） |
 | v0.8.1 | **修復**：`update_event` 時間驗證 Bug，移動事件時自動保留持續時間 |
 | v0.8.0 | **重大變更**：`calendar_name` 現在是建立操作的必填欄位（移除隱式默認） |

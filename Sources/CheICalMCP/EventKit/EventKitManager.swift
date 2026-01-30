@@ -177,6 +177,29 @@ actor EventKitManager {
         return calendar
     }
 
+    func updateCalendar(
+        identifier: String,
+        title: String? = nil,
+        color: String? = nil
+    ) async throws -> EKCalendar {
+        try await requestCalendarAccess()
+        try await requestReminderAccess()
+
+        guard let calendar = eventStore.calendar(withIdentifier: identifier) else {
+            throw EventKitError.calendarNotFound(identifier: identifier)
+        }
+        guard calendar.allowsContentModifications else {
+            throw EventKitError.calendarNotFound(identifier: "\(calendar.title) (read-only)")
+        }
+
+        if let t = title { calendar.title = t }
+        if let c = color { calendar.cgColor = parseColor(c) }
+
+        try eventStore.saveCalendar(calendar, commit: true)
+        markNeedsRefresh()
+        return calendar
+    }
+
     func deleteCalendar(identifier: String) async throws {
         try await requestCalendarAccess()
         try await requestReminderAccess()
@@ -767,6 +790,95 @@ actor EventKitManager {
 
         try eventStore.remove(reminder, commit: true)
         markNeedsRefresh()
+    }
+
+    // MARK: - Reminder Search & Batch
+
+    /// Search reminders by keyword(s) in title or notes
+    func searchReminders(
+        keywords: [String],
+        matchMode: String = "any",
+        calendarName: String? = nil,
+        calendarSource: String? = nil,
+        completed: Bool? = nil
+    ) async throws -> [EKReminder] {
+        try await requestReminderAccess()
+        refreshIfNeeded()
+
+        var calendars: [EKCalendar]?
+        if let name = calendarName {
+            calendars = try findCalendars(name: name, source: calendarSource, entityType: .reminder)
+        }
+
+        // Build predicate based on completed filter
+        let predicate: NSPredicate
+        if let isCompleted = completed {
+            if isCompleted {
+                predicate = eventStore.predicateForCompletedReminders(
+                    withCompletionDateStarting: nil,
+                    ending: nil,
+                    calendars: calendars
+                )
+            } else {
+                predicate = eventStore.predicateForIncompleteReminders(
+                    withDueDateStarting: nil,
+                    ending: nil,
+                    calendars: calendars
+                )
+            }
+        } else {
+            predicate = eventStore.predicateForReminders(in: calendars)
+        }
+
+        let allReminders: [EKReminder] = try await withCheckedThrowingContinuation { continuation in
+            eventStore.fetchReminders(matching: predicate) { reminders in
+                continuation.resume(returning: reminders ?? [])
+            }
+        }
+
+        // Filter by keywords in Swift layer (for proper Unicode support)
+        let lowercasedKeywords = keywords.map { $0.lowercased() }
+
+        return allReminders.filter { reminder in
+            let searchableText = [
+                reminder.title?.lowercased(),
+                reminder.notes?.lowercased()
+            ].compactMap { $0 }.joined(separator: " ")
+
+            if matchMode == "all" {
+                return lowercasedKeywords.allSatisfy { searchableText.contains($0) }
+            } else {
+                return lowercasedKeywords.contains { searchableText.contains($0) }
+            }
+        }
+    }
+
+    /// Delete multiple reminders at once
+    func deleteRemindersBatch(identifiers: [String]) async throws -> BatchDeleteResult {
+        try await requestReminderAccess()
+
+        var successCount = 0
+        var failures: [(String, String)] = []
+
+        for id in identifiers {
+            do {
+                guard let reminder = eventStore.calendarItem(withIdentifier: id) as? EKReminder else {
+                    failures.append((id, "Reminder not found"))
+                    continue
+                }
+                try eventStore.remove(reminder, commit: true)
+                successCount += 1
+            } catch {
+                failures.append((id, error.localizedDescription))
+            }
+        }
+
+        markNeedsRefresh()
+        return BatchDeleteResult(
+            successCount: successCount,
+            failedCount: failures.count,
+            failures: failures
+        )
     }
 
     // MARK: - Helpers

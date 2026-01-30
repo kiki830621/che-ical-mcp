@@ -102,6 +102,29 @@ class CheICalMCPServer {
                 ]),
                 annotations: .init(readOnlyHint: false, destructiveHint: true, openWorldHint: false)
             ),
+            Tool(
+                name: "update_calendar",
+                description: "Update a calendar's properties (rename or change color).",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "id": .object([
+                            "type": .string("string"),
+                            "description": .string("The calendar identifier")
+                        ]),
+                        "title": .object([
+                            "type": .string("string"),
+                            "description": .string("New calendar name")
+                        ]),
+                        "color": .object([
+                            "type": .string("string"),
+                            "description": .string("New hex color code (e.g., '#FF5733')")
+                        ])
+                    ]),
+                    "required": .array([.string("id")])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
+            ),
 
             // Event Tools
             Tool(
@@ -263,6 +286,30 @@ class CheICalMCPServer {
                     "required": .array([.string("reminder_id")])
                 ]),
                 annotations: .init(readOnlyHint: false, destructiveHint: true, openWorldHint: false)
+            ),
+            Tool(
+                name: "search_reminders",
+                description: "Search reminders by keyword(s) in title or notes. Supports single keyword or multiple keywords with AND/OR matching.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "keyword": .object(["type": .string("string"), "description": .string("Single search keyword (case-insensitive). Use this OR keywords, not both.")]),
+                        "keywords": .object([
+                            "type": .string("array"),
+                            "items": .object(["type": .string("string")]),
+                            "description": .string("Multiple search keywords (use with match_mode). Example: [\"grocery\", \"urgent\"]")
+                        ]),
+                        "match_mode": .object([
+                            "type": .string("string"),
+                            "enum": .array([.string("any"), .string("all")]),
+                            "description": .string("'any' = OR (matches if ANY keyword found, default), 'all' = AND (matches only if ALL keywords found)")
+                        ]),
+                        "calendar_name": .object(["type": .string("string"), "description": .string("Optional reminder list name to filter by")]),
+                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")]),
+                        "completed": .object(["type": .string("boolean"), "description": .string("Filter: true=completed, false=incomplete, omit=all")])
+                    ])
+                ]),
+                annotations: .init(readOnlyHint: true, openWorldHint: false)
             ),
 
             // New Feature Tools
@@ -463,6 +510,51 @@ class CheICalMCPServer {
                 ]),
                 annotations: .init(readOnlyHint: true, openWorldHint: false)
             ),
+
+            // Reminder Batch Operations
+            Tool(
+                name: "create_reminders_batch",
+                description: "PREFERRED: Create multiple reminders in a single call. Use this instead of calling create_reminder multiple times - it's faster and more reliable. Returns detailed results for each reminder.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "reminders": .object([
+                            "type": .string("array"),
+                            "description": .string("Array of reminder objects to create"),
+                            "items": .object([
+                                "type": .string("object"),
+                                "properties": .object([
+                                    "title": .object(["type": .string("string")]),
+                                    "notes": .object(["type": .string("string")]),
+                                    "due_date": .object(["type": .string("string"), "description": .string("Due date in ISO8601 format with timezone")]),
+                                    "priority": .object(["type": .string("integer"), "description": .string("Priority: 0=none, 1=high, 5=medium, 9=low")]),
+                                    "calendar_name": .object(["type": .string("string"), "description": .string("Target reminder list name (required)")]),
+                                    "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google')")])
+                                ]),
+                                "required": .array([.string("title"), .string("calendar_name")])
+                            ])
+                        ])
+                    ]),
+                    "required": .array([.string("reminders")])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: false, openWorldHint: false)
+            ),
+            Tool(
+                name: "delete_reminders_batch",
+                description: "PREFERRED: Delete multiple reminders in a single call. Use this instead of calling delete_reminder multiple times - it's faster and more reliable. Returns detailed success/failure counts.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "reminder_ids": .object([
+                            "type": .string("array"),
+                            "items": .object(["type": .string("string")]),
+                            "description": .string("Array of reminder identifiers to delete")
+                        ])
+                    ]),
+                    "required": .array([.string("reminder_ids")])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: true, openWorldHint: false)
+            ),
         ]
     }
 
@@ -503,6 +595,8 @@ class CheICalMCPServer {
             return try await handleCreateCalendar(arguments: arguments)
         case "delete_calendar":
             return try await handleDeleteCalendar(arguments: arguments)
+        case "update_calendar":
+            return try await handleUpdateCalendar(arguments: arguments)
 
         // Event Tools
         case "list_events":
@@ -525,6 +619,8 @@ class CheICalMCPServer {
             return try await handleCompleteReminder(arguments: arguments)
         case "delete_reminder":
             return try await handleDeleteReminder(arguments: arguments)
+        case "search_reminders":
+            return try await handleSearchReminders(arguments: arguments)
 
         // New Feature Tools
         case "search_events":
@@ -543,6 +639,10 @@ class CheICalMCPServer {
             return try await handleDeleteEventsBatch(arguments: arguments)
         case "find_duplicate_events":
             return try await handleFindDuplicateEvents(arguments: arguments)
+        case "create_reminders_batch":
+            return try await handleCreateRemindersBatch(arguments: arguments)
+        case "delete_reminders_batch":
+            return try await handleDeleteRemindersBatch(arguments: arguments)
 
         default:
             throw ToolError.unknownTool(name)
@@ -837,6 +937,162 @@ class CheICalMCPServer {
 
         try await eventKitManager.deleteReminder(identifier: reminderId)
         return "Reminder deleted successfully"
+    }
+
+    private func handleUpdateCalendar(arguments: [String: Value]) async throws -> String {
+        guard let id = arguments["id"]?.stringValue else {
+            throw ToolError.invalidParameter("id is required")
+        }
+
+        let title = arguments["title"]?.stringValue
+        let color = arguments["color"]?.stringValue
+
+        if title == nil && color == nil {
+            throw ToolError.invalidParameter("At least one of 'title' or 'color' must be provided")
+        }
+
+        let calendar = try await eventKitManager.updateCalendar(
+            identifier: id,
+            title: title,
+            color: color
+        )
+
+        return "Updated calendar: \(calendar.title) (ID: \(calendar.calendarIdentifier))"
+    }
+
+    private func handleSearchReminders(arguments: [String: Value]) async throws -> String {
+        var keywords: [String] = []
+
+        if let keywordsArray = arguments["keywords"]?.arrayValue {
+            keywords = keywordsArray.compactMap { $0.stringValue }
+        } else if let keyword = arguments["keyword"]?.stringValue {
+            keywords = [keyword]
+        }
+
+        if keywords.isEmpty {
+            throw ToolError.invalidParameter("Either 'keyword' or 'keywords' is required")
+        }
+
+        let matchMode = arguments["match_mode"]?.stringValue ?? "any"
+        let calendarName = arguments["calendar_name"]?.stringValue
+        let calendarSource = arguments["calendar_source"]?.stringValue
+        let completed = arguments["completed"]?.boolValue
+
+        let reminders = try await eventKitManager.searchReminders(
+            keywords: keywords,
+            matchMode: matchMode,
+            calendarName: calendarName,
+            calendarSource: calendarSource,
+            completed: completed
+        )
+
+        let result = reminders.map { reminder -> [String: Any] in
+            var dict: [String: Any] = [
+                "id": reminder.calendarItemIdentifier,
+                "title": reminder.title ?? "",
+                "is_completed": reminder.isCompleted,
+                "priority": reminder.priority,
+                "calendar": reminder.calendar.title,
+                "timezone": TimeZone.current.identifier
+            ]
+            if let notes = reminder.notes { dict["notes"] = notes }
+            if let dueDate = reminder.dueDateComponents?.date {
+                dict["due_date"] = dateFormatter.string(from: dueDate)
+                dict["due_date_local"] = localDateFormatter.string(from: dueDate)
+            }
+            if let completionDate = reminder.completionDate {
+                dict["completion_date"] = dateFormatter.string(from: completionDate)
+                dict["completion_date_local"] = localDateFormatter.string(from: completionDate)
+            }
+            return dict
+        }
+
+        let response: [String: Any] = [
+            "keywords": keywords,
+            "match_mode": matchMode,
+            "result_count": reminders.count,
+            "reminders": result
+        ]
+        return formatJSON(response)
+    }
+
+    private func handleCreateRemindersBatch(arguments: [String: Value]) async throws -> String {
+        guard let remindersArray = arguments["reminders"]?.arrayValue else {
+            throw ToolError.invalidParameter("reminders array is required")
+        }
+
+        var results: [[String: Any]] = []
+
+        for (index, reminderValue) in remindersArray.enumerated() {
+            guard let reminderDict = reminderValue.objectValue else {
+                results.append(["index": index, "success": false, "error": "Invalid reminder format"])
+                continue
+            }
+
+            guard let title = reminderDict["title"]?.stringValue else {
+                results.append(["index": index, "success": false, "error": "title is required"])
+                continue
+            }
+
+            do {
+                let reminder = try await eventKitManager.createReminder(
+                    title: title,
+                    notes: reminderDict["notes"]?.stringValue,
+                    dueDate: reminderDict["due_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) },
+                    priority: reminderDict["priority"]?.intValue ?? 0,
+                    calendarName: reminderDict["calendar_name"]?.stringValue,
+                    calendarSource: reminderDict["calendar_source"]?.stringValue
+                )
+                results.append([
+                    "index": index,
+                    "success": true,
+                    "reminder_id": reminder.calendarItemIdentifier,
+                    "title": reminder.title ?? title
+                ])
+            } catch {
+                results.append([
+                    "index": index,
+                    "success": false,
+                    "error": error.localizedDescription
+                ])
+            }
+        }
+
+        let successCount = results.filter { ($0["success"] as? Bool) == true }.count
+        let response: [String: Any] = [
+            "total": remindersArray.count,
+            "succeeded": successCount,
+            "failed": remindersArray.count - successCount,
+            "results": results
+        ]
+        return formatJSON(response)
+    }
+
+    private func handleDeleteRemindersBatch(arguments: [String: Value]) async throws -> String {
+        guard let reminderIdsArray = arguments["reminder_ids"]?.arrayValue else {
+            throw ToolError.invalidParameter("reminder_ids array is required")
+        }
+
+        let reminderIds = reminderIdsArray.compactMap { $0.stringValue }
+        if reminderIds.isEmpty {
+            throw ToolError.invalidParameter("reminder_ids must contain at least one reminder ID")
+        }
+
+        let result = try await eventKitManager.deleteRemindersBatch(identifiers: reminderIds)
+
+        var response: [String: Any] = [
+            "total": reminderIds.count,
+            "succeeded": result.successCount,
+            "failed": result.failedCount
+        ]
+
+        if !result.failures.isEmpty {
+            response["failures"] = result.failures.map { failure -> [String: String] in
+                ["reminder_id": failure.identifier, "error": failure.error]
+            }
+        }
+
+        return formatJSON(response)
     }
 
     // MARK: - New Feature Handlers

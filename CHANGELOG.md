@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-01-30
+
+### Added
+- **`update_calendar`**: Rename a calendar or change its color
+- **`search_reminders`**: Search reminders by keyword(s) in title or notes, with AND/OR matching and completion status filter
+- **`create_reminders_batch`**: Create multiple reminders in a single call with per-item success/failure tracking
+- **`delete_reminders_batch`**: Delete multiple reminders in a single call with detailed results
+
+### Summary
+4 new tools added (20 → 24 total). This release rounds out Reminders support with search and batch operations, and adds calendar update functionality.
+
+---
+
 ## [0.8.2] - 2026-01-30
 
 ### Fixed
@@ -139,6 +152,7 @@ Previously, if `calendar_name` was not specified, events/reminders would be save
 
 | Version | Total Tools | New Tools |
 |---------|-------------|-----------|
+| 0.9.0   | 24          | +4 (update_calendar, search_reminders, create_reminders_batch, delete_reminders_batch) |
 | 0.6.0   | 20          | Enhancement: calendar_source parameter for disambiguation |
 | 0.5.0   | 20          | +2 (delete_events_batch, find_duplicate_events) |
 | 0.4.0   | 18          | +2 (copy_event, move_events_batch) |

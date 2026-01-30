@@ -84,16 +84,17 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 
 ---
 
-## All 20 Tools
+## All 24 Tools
 
 <details>
-<summary><b>Calendars (3)</b></summary>
+<summary><b>Calendars (4)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `list_calendars` | List all calendars and reminder lists |
 | `create_calendar` | Create a new calendar |
 | `delete_calendar` | Delete a calendar |
+| `update_calendar` | Rename a calendar or change its color (v0.9.0) |
 
 </details>
 
@@ -110,7 +111,7 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 </details>
 
 <details>
-<summary><b>Reminders (5)</b></summary>
+<summary><b>Reminders (6)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -119,11 +120,12 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 | `update_reminder` | Update a reminder |
 | `complete_reminder` | Mark as completed/incomplete |
 | `delete_reminder` | Delete a reminder |
+| `search_reminders` | Search reminders by keyword(s) with AND/OR matching (v0.9.0) |
 
 </details>
 
 <details>
-<summary><b>Advanced Features (8)</b> ✨ New in v0.3.0+</summary>
+<summary><b>Advanced Features (10)</b> ✨ New in v0.3.0+</summary>
 
 | Tool | Description |
 |------|-------------|
@@ -135,6 +137,8 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 | `move_events_batch` | Move multiple events to another calendar |
 | `delete_events_batch` | Delete multiple events at once (v0.5.0) |
 | `find_duplicate_events` | Find duplicate events across calendars (v0.5.0) |
+| `create_reminders_batch` | Create multiple reminders at once (v0.9.0) |
+| `delete_reminders_batch` | Delete multiple reminders at once (v0.9.0) |
 
 </details>
 
@@ -314,12 +318,12 @@ If ambiguity is detected, the error message will list all available sources.
 
 ## Technical Details
 
-- **Current Version**: v0.8.2
+- **Current Version**: v0.9.0
 - **Framework**: [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.10.2
 - **Calendar API**: EventKit (native macOS framework)
 - **Transport**: stdio
 - **Platform**: macOS 13.0+ (Ventura and later)
-- **Tools**: 20 tools for calendars, events, reminders, and advanced operations
+- **Tools**: 24 tools for calendars, events, reminders, and advanced operations
 
 ---
 
@@ -327,6 +331,7 @@ If ambiguity is detected, the error message will list all available sources.
 
 | Version | Changes |
 |---------|---------|
+| v0.9.0 | **4 new tools** (20→24): `update_calendar`, `search_reminders`, `create_reminders_batch`, `delete_reminders_batch` |
 | v0.8.2 | **i18n week support**: `week_starts_on` parameter for `list_events_quick` (monday/sunday/saturday/system) |
 | v0.8.1 | **Fix**: `update_event` time validation bug, duration preservation when moving events |
 | v0.8.0 | **BREAKING**: `calendar_name` now required for create operations (no more implicit defaults) |
