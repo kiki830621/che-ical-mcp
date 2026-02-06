@@ -91,7 +91,7 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 
 | Tool | Description |
 |------|-------------|
-| `list_calendars` | List all calendars and reminder lists |
+| `list_calendars` | List all calendars and reminder lists (includes source_type) |
 | `create_calendar` | Create a new calendar |
 | `delete_calendar` | Delete a calendar |
 | `update_calendar` | Rename a calendar or change its color (v0.9.0) |
@@ -103,7 +103,7 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 
 | Tool | Description |
 |------|-------------|
-| `list_events` | List events in a date range |
+| `list_events` | List events with filter/sort/limit (v1.0.0) |
 | `create_event` | Create an event (with reminders, location, URL) |
 | `update_event` | Update an event |
 | `delete_event` | Delete an event |
@@ -115,7 +115,7 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 
 | Tool | Description |
 |------|-------------|
-| `list_reminders` | List reminders (all or by list) |
+| `list_reminders` | List reminders with filter/sort/limit (v1.0.0) |
 | `create_reminder` | Create a reminder with due date |
 | `update_reminder` | Update a reminder |
 | `complete_reminder` | Mark as completed/incomplete |
@@ -135,7 +135,7 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 | `check_conflicts` | Check for overlapping events in a time range |
 | `copy_event` | Copy an event to another calendar (with optional move) |
 | `move_events_batch` | Move multiple events to another calendar |
-| `delete_events_batch` | Delete multiple events at once (v0.5.0) |
+| `delete_events_batch` | Delete events by IDs or date range, with dry-run preview (v1.0.0) |
 | `find_duplicate_events` | Find duplicate events across calendars (v0.5.0) |
 | `create_reminders_batch` | Create multiple reminders at once (v0.9.0) |
 | `delete_reminders_batch` | Delete multiple reminders at once (v0.9.0) |
@@ -238,6 +238,33 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access. Click
 
 ---
 
+## v1.0.0 Features
+
+### Flexible Date Parsing
+
+All date parameters now accept 4 formats:
+
+| Format | Example | Interpretation |
+|--------|---------|----------------|
+| Full ISO8601 | `"2026-02-06T14:00:00+08:00"` | Exact date and time |
+| Without timezone | `"2026-02-06T14:00:00"` | Uses system timezone |
+| Date only | `"2026-02-06"` | Midnight, system timezone |
+| Time only | `"14:00"` | Today at that time |
+
+### Fuzzy Calendar Matching
+
+Calendar names are now matched **case-insensitively**. If not found, the error message lists all available calendars.
+
+### Enhanced list/delete Tools
+
+- **`list_events`**: `filter` (all/past/future/all_day), `sort` (asc/desc), `limit`
+- **`list_reminders`**: `filter` (all/incomplete/completed/overdue), `sort` (due_date/creation_date/priority/title), `limit`
+- **`delete_events_batch`**: date range mode (`before_date`/`after_date`) + `dry_run` preview
+
+> **Breaking Change**: `list_events` and `list_reminders` now return `{events/reminders: [...], metadata: {...}}` instead of a plain array.
+
+---
+
 ## Usage Examples
 
 ### Calendar Management
@@ -274,6 +301,22 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access. Click
 "Move all events from 'Old Calendar' to 'New Calendar'"
 "Delete all the cancelled events"
 "Find duplicate events between 'IDOL' and 'Idol' calendars"
+```
+
+### DX Improvements (v1.0.0)
+
+```
+"Show my next 5 upcoming events"
+→ list_events(start_date: "2026-02-06", end_date: "2026-12-31", filter: "future", sort: "asc", limit: 5)
+
+"Show my overdue reminders"
+→ list_reminders(filter: "overdue")
+
+"Preview which events would be deleted from 'Old Calendar' before 2025"
+→ delete_events_batch(calendar_name: "Old Calendar", before_date: "2025-01-01", dry_run: true)
+
+"Create an event at 2 PM" (no need for full ISO8601!)
+→ create_event(start_time: "14:00", end_time: "15:00", ...)
 ```
 
 ---

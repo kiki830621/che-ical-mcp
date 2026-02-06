@@ -91,7 +91,7 @@ swift build -c release
 
 | 工具 | 說明 |
 |------|------|
-| `list_calendars` | 列出所有行事曆和提醒事項清單 |
+| `list_calendars` | 列出所有行事曆和提醒事項清單（包含 source_type） |
 | `create_calendar` | 建立新行事曆 |
 | `delete_calendar` | 刪除行事曆 |
 | `update_calendar` | 重新命名行事曆或更改顏色（v0.9.0） |
@@ -103,7 +103,7 @@ swift build -c release
 
 | 工具 | 說明 |
 |------|------|
-| `list_events` | 列出日期範圍內的事件 |
+| `list_events` | 列出事件，支援篩選/排序/限制（v1.0.0） |
 | `create_event` | 建立事件（支援提醒、地點、網址） |
 | `update_event` | 更新事件 |
 | `delete_event` | 刪除事件 |
@@ -115,7 +115,7 @@ swift build -c release
 
 | 工具 | 說明 |
 |------|------|
-| `list_reminders` | 列出提醒事項（全部或依清單） |
+| `list_reminders` | 列出提醒事項，支援篩選/排序/限制（v1.0.0） |
 | `create_reminder` | 建立含到期日的提醒事項 |
 | `update_reminder` | 更新提醒事項 |
 | `complete_reminder` | 標記為已完成/未完成 |
@@ -135,7 +135,7 @@ swift build -c release
 | `check_conflicts` | 檢查指定時間範圍是否有重疊事件 |
 | `copy_event` | 複製事件到另一個日曆（可選擇移動） |
 | `move_events_batch` | 批次移動事件到另一個日曆 |
-| `delete_events_batch` | 批次刪除多個事件（v0.5.0） |
+| `delete_events_batch` | 依 ID 或日期範圍刪除事件，支援預覽模式（v1.0.0） |
 | `find_duplicate_events` | 跨日曆查找重複事件（v0.5.0） |
 | `create_reminders_batch` | 一次建立多個提醒事項（v0.9.0） |
 | `delete_reminders_batch` | 批次刪除多個提醒事項（v0.9.0） |
@@ -238,6 +238,33 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 
 ---
 
+## v1.0.0 新功能
+
+### 彈性日期解析
+
+所有日期參數現在支援 4 種格式：
+
+| 格式 | 範例 | 解釋 |
+|------|------|------|
+| 完整 ISO8601 | `"2026-02-06T14:00:00+08:00"` | 精確日期和時間 |
+| 無時區 | `"2026-02-06T14:00:00"` | 使用系統時區 |
+| 僅日期 | `"2026-02-06"` | 午夜，系統時區 |
+| 僅時間 | `"14:00"` | 今天該時間 |
+
+### 模糊行事曆匹配
+
+行事曆名稱現在**不區分大小寫**匹配。如果找不到，錯誤訊息會列出所有可用的行事曆。
+
+### 增強的列出/刪除工具
+
+- **`list_events`**：`filter`（all/past/future/all_day）、`sort`（asc/desc）、`limit`
+- **`list_reminders`**：`filter`（all/incomplete/completed/overdue）、`sort`（due_date/creation_date/priority/title）、`limit`
+- **`delete_events_batch`**：日期範圍模式（`before_date`/`after_date`）+ `dry_run` 預覽
+
+> **重大變更**：`list_events` 和 `list_reminders` 現在回傳 `{events/reminders: [...], metadata: {...}}` 而非純陣列。
+
+---
+
 ## 使用範例
 
 ### 行事曆管理
@@ -274,6 +301,22 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 「把舊行事曆的所有事件移到新行事曆」
 「刪除所有已取消的事件」
 「找出『IDOL』和『Idol』行事曆中的重複事件」
+```
+
+### 開發體驗改進（v1.0.0）
+
+```
+「顯示我接下來 5 個事件」
+→ list_events(start_date: "2026-02-06", end_date: "2026-12-31", filter: "future", sort: "asc", limit: 5)
+
+「顯示我逾期的提醒事項」
+→ list_reminders(filter: "overdue")
+
+「預覽刪除『舊行事曆』2025 年之前的事件」
+→ delete_events_batch(calendar_name: "舊行事曆", before_date: "2025-01-01", dry_run: true)
+
+「下午 2 點建立事件」（不需要完整 ISO8601！）
+→ create_event(start_time: "14:00", end_time: "15:00", ...)
 ```
 
 ---
