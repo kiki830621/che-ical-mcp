@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.kiki830621/che-ical-mcp",
+  "title": "macOS Calendar & Reminders",
+  "description": "macOS Calendar & Reminders MCP server (24 tools). Native Swift EventKit, iCloud/Google/Exchange.",
+  "repository": {
+    "url": "https://github.com/kiki830621/che-ical-mcp",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/kiki830621/che-ical-mcp/releases/download/v1.0.0/che-ical-mcp.mcpb",
+      "fileSha256": "9137f54ea13fb3462dd37a05f591e438ca2f10d7b0b3e770b5e956640adff3a9",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
