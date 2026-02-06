@@ -79,16 +79,30 @@ actor EventKitManager {
         source: String?,
         entityType: EKEntityType
     ) throws -> EKCalendar {
-        let calendars = eventStore.calendars(for: entityType).filter { cal in
+        let allCalendars = eventStore.calendars(for: entityType)
+
+        // 1. Exact match (case-sensitive)
+        var calendars = allCalendars.filter { cal in
             cal.title == name &&
             (source == nil || cal.source.title == source)
         }
 
+        // 2. Case-insensitive fallback
         if calendars.isEmpty {
+            let lowerName = name.lowercased()
+            let lowerSource = source?.lowercased()
+            calendars = allCalendars.filter { cal in
+                cal.title.lowercased() == lowerName &&
+                (lowerSource == nil || cal.source.title.lowercased() == lowerSource)
+            }
+        }
+
+        if calendars.isEmpty {
+            let available = allCalendars.map { "\($0.title) (\($0.source.title))" }
             if let source = source {
-                throw EventKitError.calendarNotFoundWithSource(name: name, source: source)
+                throw EventKitError.calendarNotFoundWithSource(name: name, source: source, available: available)
             } else {
-                throw EventKitError.calendarNotFound(identifier: name)
+                throw EventKitError.calendarNotFound(identifier: name, available: available)
             }
         }
 
@@ -111,16 +125,30 @@ actor EventKitManager {
         source: String?,
         entityType: EKEntityType
     ) throws -> [EKCalendar] {
-        let calendars = eventStore.calendars(for: entityType).filter { cal in
+        let allCalendars = eventStore.calendars(for: entityType)
+
+        // 1. Exact match (case-sensitive)
+        var calendars = allCalendars.filter { cal in
             cal.title == name &&
             (source == nil || cal.source.title == source)
         }
 
+        // 2. Case-insensitive fallback
         if calendars.isEmpty {
+            let lowerName = name.lowercased()
+            let lowerSource = source?.lowercased()
+            calendars = allCalendars.filter { cal in
+                cal.title.lowercased() == lowerName &&
+                (lowerSource == nil || cal.source.title.lowercased() == lowerSource)
+            }
+        }
+
+        if calendars.isEmpty {
+            let available = allCalendars.map { "\($0.title) (\($0.source.title))" }
             if let source = source {
-                throw EventKitError.calendarNotFoundWithSource(name: name, source: source)
+                throw EventKitError.calendarNotFoundWithSource(name: name, source: source, available: available)
             } else {
-                throw EventKitError.calendarNotFound(identifier: name)
+                throw EventKitError.calendarNotFound(identifier: name, available: available)
             }
         }
 
@@ -375,6 +403,15 @@ actor EventKitManager {
 
         try eventStore.remove(event, span: span)
         markNeedsRefresh()
+    }
+
+    /// Get a single event by identifier
+    func getEvent(identifier: String) async throws -> EKEvent {
+        try await requestCalendarAccess()
+        guard let event = eventStore.event(withIdentifier: identifier) else {
+            throw EventKitError.eventNotFound(identifier: identifier)
+        }
+        return event
     }
 
     // MARK: - Search and Conflict Detection
@@ -951,8 +988,8 @@ struct RecurrenceRuleInput {
 
 enum EventKitError: LocalizedError {
     case accessDenied(type: String)
-    case calendarNotFound(identifier: String)
-    case calendarNotFoundWithSource(name: String, source: String)
+    case calendarNotFound(identifier: String, available: [String] = [])
+    case calendarNotFoundWithSource(name: String, source: String, available: [String] = [])
     case multipleCalendarsFound(name: String, sources: String)
     case eventNotFound(identifier: String)
     case reminderNotFound(identifier: String)
@@ -968,10 +1005,16 @@ enum EventKitError: LocalizedError {
             2. Enable access for the MCP server or Terminal
             3. Restart Claude Desktop/Code
             """
-        case .calendarNotFound(let id):
-            return "Calendar not found: \(id)"
-        case .calendarNotFoundWithSource(let name, let source):
-            return "Calendar '\(name)' not found in source '\(source)'"
+        case .calendarNotFound(let id, let available):
+            if available.isEmpty {
+                return "Calendar not found: \(id)"
+            }
+            return "Calendar not found: \(id). Available: \(available.joined(separator: ", "))"
+        case .calendarNotFoundWithSource(let name, let source, let available):
+            if available.isEmpty {
+                return "Calendar '\(name)' not found in source '\(source)'"
+            }
+            return "Calendar '\(name)' not found in source '\(source)'. Available: \(available.joined(separator: ", "))"
         case .multipleCalendarsFound(let name, let sources):
             return """
             Multiple calendars found with name '\(name)'.

@@ -129,17 +129,17 @@ class CheICalMCPServer {
             // Event Tools
             Tool(
                 name: "list_events",
-                description: "List calendar events in a date range. Use ISO8601 format with timezone (e.g., 2026-01-30T00:00:00+08:00).",
+                description: "List calendar events in a date range with optional filtering, sorting, and limiting. Supports flexible date formats: ISO8601 (2026-01-30T00:00:00+08:00), datetime (2026-01-30T00:00:00), date only (2026-01-30), or time only (14:00).",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
                         "start_date": .object([
                             "type": .string("string"),
-                            "description": .string("Start date in ISO8601 format with timezone (e.g., 2026-01-30T00:00:00+08:00)")
+                            "description": .string("Start date (e.g., 2026-01-30T00:00:00+08:00 or 2026-01-30)")
                         ]),
                         "end_date": .object([
                             "type": .string("string"),
-                            "description": .string("End date in ISO8601 format with timezone (e.g., 2026-01-30T23:59:59+08:00)")
+                            "description": .string("End date (e.g., 2026-01-30T23:59:59+08:00 or 2026-01-30)")
                         ]),
                         "calendar_name": .object([
                             "type": .string("string"),
@@ -148,6 +148,20 @@ class CheICalMCPServer {
                         "calendar_source": .object([
                             "type": .string("string"),
                             "description": .string("Calendar source name (e.g., 'iCloud', 'Google', 'Exchange'). Required when multiple calendars share the same name.")
+                        ]),
+                        "filter": .object([
+                            "type": .string("string"),
+                            "enum": .array([.string("all"), .string("past"), .string("future"), .string("all_day")]),
+                            "description": .string("Filter events: 'all' (default), 'past' (ended before now), 'future' (starts after now), 'all_day' (all-day events only)")
+                        ]),
+                        "sort": .object([
+                            "type": .string("string"),
+                            "enum": .array([.string("asc"), .string("desc")]),
+                            "description": .string("Sort by start date: 'asc' (default, earliest first), 'desc' (latest first)")
+                        ]),
+                        "limit": .object([
+                            "type": .string("integer"),
+                            "description": .string("Maximum number of events to return")
                         ])
                     ]),
                     "required": .array([.string("start_date"), .string("end_date")])
@@ -216,11 +230,25 @@ class CheICalMCPServer {
             // Reminder Tools
             Tool(
                 name: "list_reminders",
-                description: "List reminders from the Reminders app.",
+                description: "List reminders from the Reminders app with optional filtering, sorting, and limiting.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
-                        "completed": .object(["type": .string("boolean"), "description": .string("Filter: true=completed, false=incomplete, omit=all")]),
+                        "completed": .object(["type": .string("boolean"), "description": .string("Legacy filter: true=completed, false=incomplete, omit=all. Prefer using 'filter' parameter instead.")]),
+                        "filter": .object([
+                            "type": .string("string"),
+                            "enum": .array([.string("all"), .string("incomplete"), .string("completed"), .string("overdue")]),
+                            "description": .string("Filter reminders: 'all' (default), 'incomplete', 'completed', 'overdue' (incomplete with past due date). Takes priority over 'completed' parameter.")
+                        ]),
+                        "sort": .object([
+                            "type": .string("string"),
+                            "enum": .array([.string("due_date"), .string("creation_date"), .string("priority"), .string("title")]),
+                            "description": .string("Sort by: 'due_date' (default, nulls last), 'creation_date', 'priority' (high→low), 'title' (alphabetical)")
+                        ]),
+                        "limit": .object([
+                            "type": .string("integer"),
+                            "description": .string("Maximum number of reminders to return")
+                        ]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Optional reminder list name")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")])
                     ])
@@ -461,22 +489,41 @@ class CheICalMCPServer {
             // Feature 8: Delete Events Batch
             Tool(
                 name: "delete_events_batch",
-                description: "PREFERRED: Delete multiple events in a single call. Use this instead of calling delete_event multiple times - it's faster and more reliable. Returns detailed success/failure counts.",
+                description: "Delete multiple events. Two modes: (1) by event_ids - delete specific events, (2) by calendar + date range - delete all events matching criteria. Use dry_run=true (default) to preview before deleting.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
                         "event_ids": .object([
                             "type": .string("array"),
                             "items": .object(["type": .string("string")]),
-                            "description": .string("Array of event identifiers to delete")
+                            "description": .string("Mode 1: Array of event identifiers to delete")
+                        ]),
+                        "calendar_name": .object([
+                            "type": .string("string"),
+                            "description": .string("Mode 2: Calendar name to delete events from (use with before_date/after_date)")
+                        ]),
+                        "calendar_source": .object([
+                            "type": .string("string"),
+                            "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")
+                        ]),
+                        "before_date": .object([
+                            "type": .string("string"),
+                            "description": .string("Mode 2: Delete events before this date (supports flexible formats)")
+                        ]),
+                        "after_date": .object([
+                            "type": .string("string"),
+                            "description": .string("Mode 2: Delete events after this date (supports flexible formats)")
+                        ]),
+                        "dry_run": .object([
+                            "type": .string("boolean"),
+                            "description": .string("Preview deletion without actually deleting (default: true). Set to false to execute deletion.")
                         ]),
                         "span": .object([
                             "type": .string("string"),
                             "enum": .array([.string("this"), .string("future")]),
                             "description": .string("For recurring events: 'this' (default) deletes only this occurrence, 'future' deletes this and all future occurrences")
                         ])
-                    ]),
-                    "required": .array([.string("event_ids")])
+                    ])
                 ]),
                 annotations: .init(readOnlyHint: false, destructiveHint: true, openWorldHint: false)
             ),
@@ -665,7 +712,8 @@ class CheICalMCPServer {
                 "type": calendar.type.rawValue,
                 "allowsContentModifications": calendar.allowsContentModifications,
                 "isSubscribed": calendar.isSubscribed,
-                "source": calendar.source.title
+                "source": calendar.source.title,
+                "source_type": sourceTypeString(calendar.source.sourceType)
             ]
         }
         return formatJSON(result)
@@ -702,26 +750,56 @@ class CheICalMCPServer {
     // MARK: - Event Handlers
 
     private func handleListEvents(arguments: [String: Value]) async throws -> String {
-        guard let startStr = arguments["start_date"]?.stringValue,
-              let startDate = dateFormatter.date(from: startStr)
-        else {
-            throw ToolError.invalidParameter("start_date must be a valid ISO8601 date")
+        guard let startStr = arguments["start_date"]?.stringValue else {
+            throw ToolError.invalidParameter("start_date is required")
         }
-        guard let endStr = arguments["end_date"]?.stringValue,
-              let endDate = dateFormatter.date(from: endStr)
-        else {
-            throw ToolError.invalidParameter("end_date must be a valid ISO8601 date")
+        let startDate = try parseFlexibleDate(startStr)
+        guard let endStr = arguments["end_date"]?.stringValue else {
+            throw ToolError.invalidParameter("end_date is required")
         }
+        let endDate = try parseFlexibleDate(endStr)
 
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
+        let filterMode = arguments["filter"]?.stringValue ?? "all"
+        let sortMode = arguments["sort"]?.stringValue ?? "asc"
+        let limit = arguments["limit"]?.intValue
 
-        let events = try await eventKitManager.listEvents(
+        var events = try await eventKitManager.listEvents(
             startDate: startDate,
             endDate: endDate,
             calendarName: calendarName,
             calendarSource: calendarSource
         )
+
+        let totalInRange = events.count
+        let now = Date()
+
+        // Apply filter
+        switch filterMode {
+        case "past":
+            events = events.filter { $0.endDate < now }
+        case "future":
+            events = events.filter { $0.startDate > now }
+        case "all_day":
+            events = events.filter { $0.isAllDay }
+        default:
+            break
+        }
+
+        let totalAfterFilter = events.count
+
+        // Apply sort
+        if sortMode == "desc" {
+            events.sort { $0.startDate > $1.startDate }
+        } else {
+            events.sort { $0.startDate < $1.startDate }
+        }
+
+        // Apply limit
+        if let limit = limit, limit > 0 && events.count > limit {
+            events = Array(events.prefix(limit))
+        }
 
         let result = events.map { event -> [String: Any] in
             var dict: [String: Any] = [
@@ -741,23 +819,35 @@ class CheICalMCPServer {
             if event.hasRecurrenceRules { dict["is_recurring"] = true }
             return dict
         }
-        return formatJSON(result)
+
+        var metadata: [String: Any] = [
+            "total_in_range": totalInRange,
+            "total_after_filter": totalAfterFilter,
+            "returned": result.count,
+            "filter": filterMode,
+            "sort": sortMode
+        ]
+        if let limit = limit { metadata["limit"] = limit }
+
+        let response: [String: Any] = [
+            "events": result,
+            "metadata": metadata
+        ]
+        return formatJSON(response)
     }
 
     private func handleCreateEvent(arguments: [String: Value]) async throws -> String {
         guard let title = arguments["title"]?.stringValue else {
             throw ToolError.invalidParameter("title is required")
         }
-        guard let startStr = arguments["start_time"]?.stringValue,
-              let startDate = dateFormatter.date(from: startStr)
-        else {
-            throw ToolError.invalidParameter("start_time must be a valid ISO8601 date")
+        guard let startStr = arguments["start_time"]?.stringValue else {
+            throw ToolError.invalidParameter("start_time is required")
         }
-        guard let endStr = arguments["end_time"]?.stringValue,
-              let endDate = dateFormatter.date(from: endStr)
-        else {
-            throw ToolError.invalidParameter("end_time must be a valid ISO8601 date")
+        let startDate = try parseFlexibleDate(startStr)
+        guard let endStr = arguments["end_time"]?.stringValue else {
+            throw ToolError.invalidParameter("end_time is required")
         }
+        let endDate = try parseFlexibleDate(endStr)
 
         let notes = arguments["notes"]?.stringValue
         let location = arguments["location"]?.stringValue
@@ -793,8 +883,8 @@ class CheICalMCPServer {
         }
 
         let title = arguments["title"]?.stringValue
-        let startDate = arguments["start_time"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
-        let endDate = arguments["end_time"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
+        let startDate: Date? = try arguments["start_time"]?.stringValue.map { try parseFlexibleDate($0) }
+        let endDate: Date? = try arguments["end_time"]?.stringValue.map { try parseFlexibleDate($0) }
         let notes = arguments["notes"]?.stringValue
         let location = arguments["location"]?.stringValue
         let url = arguments["url"]?.stringValue
@@ -833,15 +923,71 @@ class CheICalMCPServer {
     // MARK: - Reminder Handlers
 
     private func handleListReminders(arguments: [String: Value]) async throws -> String {
-        let completed = arguments["completed"]?.boolValue
+        let filterMode = arguments["filter"]?.stringValue
+        let sortMode = arguments["sort"]?.stringValue ?? "due_date"
+        let limit = arguments["limit"]?.intValue
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
 
-        let reminders = try await eventKitManager.listReminders(
+        // Determine completion filter: 'filter' parameter takes priority over legacy 'completed'
+        let completed: Bool?
+        if let filterMode = filterMode {
+            switch filterMode {
+            case "completed": completed = true
+            case "incomplete", "overdue": completed = false
+            default: completed = nil  // "all"
+            }
+        } else {
+            completed = arguments["completed"]?.boolValue
+        }
+
+        var reminders = try await eventKitManager.listReminders(
             completed: completed,
             calendarName: calendarName,
             calendarSource: calendarSource
         )
+
+        let totalFetched = reminders.count
+        let now = Date()
+
+        // Apply overdue filter (incomplete + past due date)
+        if filterMode == "overdue" {
+            reminders = reminders.filter { reminder in
+                !reminder.isCompleted &&
+                reminder.dueDateComponents?.date.map { $0 < now } == true
+            }
+        }
+
+        let totalAfterFilter = reminders.count
+
+        // Apply sort
+        reminders.sort { r1, r2 in
+            switch sortMode {
+            case "priority":
+                // Priority sort: 1(high) → 5(medium) → 9(low) → 0(none)
+                let p1 = r1.priority == 0 ? Int.max : r1.priority
+                let p2 = r2.priority == 0 ? Int.max : r2.priority
+                return p1 < p2
+            case "title":
+                return (r1.title ?? "").localizedCaseInsensitiveCompare(r2.title ?? "") == .orderedAscending
+            case "creation_date":
+                let d1 = r1.creationDate ?? Date.distantPast
+                let d2 = r2.creationDate ?? Date.distantPast
+                return d1 < d2
+            default: // "due_date"
+                let d1 = r1.dueDateComponents?.date
+                let d2 = r2.dueDateComponents?.date
+                if d1 == nil && d2 == nil { return false }
+                if d1 == nil { return false }  // nulls last
+                if d2 == nil { return true }
+                return d1! < d2!
+            }
+        }
+
+        // Apply limit
+        if let limit = limit, limit > 0 && reminders.count > limit {
+            reminders = Array(reminders.prefix(limit))
+        }
 
         let result = reminders.map { reminder -> [String: Any] in
             var dict: [String: Any] = [
@@ -856,14 +1002,33 @@ class CheICalMCPServer {
             if let dueDate = reminder.dueDateComponents?.date {
                 dict["due_date"] = dateFormatter.string(from: dueDate)
                 dict["due_date_local"] = localDateFormatter.string(from: dueDate)
+                dict["is_overdue"] = !reminder.isCompleted && dueDate < now
             }
             if let completionDate = reminder.completionDate {
                 dict["completion_date"] = dateFormatter.string(from: completionDate)
                 dict["completion_date_local"] = localDateFormatter.string(from: completionDate)
             }
+            if let creationDate = reminder.creationDate {
+                dict["creation_date"] = dateFormatter.string(from: creationDate)
+                dict["creation_date_local"] = localDateFormatter.string(from: creationDate)
+            }
             return dict
         }
-        return formatJSON(result)
+
+        var metadata: [String: Any] = [
+            "total_fetched": totalFetched,
+            "total_after_filter": totalAfterFilter,
+            "returned": result.count,
+            "filter": filterMode ?? "all",
+            "sort": sortMode
+        ]
+        if let limit = limit { metadata["limit"] = limit }
+
+        let response: [String: Any] = [
+            "reminders": result,
+            "metadata": metadata
+        ]
+        return formatJSON(response)
     }
 
     private func handleCreateReminder(arguments: [String: Value]) async throws -> String {
@@ -872,7 +1037,7 @@ class CheICalMCPServer {
         }
 
         let notes = arguments["notes"]?.stringValue
-        let dueDate = arguments["due_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
+        let dueDate: Date? = try arguments["due_date"]?.stringValue.map { try parseFlexibleDate($0) }
         let priority = arguments["priority"]?.intValue ?? 0
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
@@ -896,7 +1061,7 @@ class CheICalMCPServer {
 
         let title = arguments["title"]?.stringValue
         let notes = arguments["notes"]?.stringValue
-        let dueDate = arguments["due_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
+        let dueDate: Date? = try arguments["due_date"]?.stringValue.map { try parseFlexibleDate($0) }
         let priority = arguments["priority"]?.intValue
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
@@ -1035,10 +1200,11 @@ class CheICalMCPServer {
             }
 
             do {
+                let batchDueDate: Date? = try reminderDict["due_date"]?.stringValue.map { try parseFlexibleDate($0) }
                 let reminder = try await eventKitManager.createReminder(
                     title: title,
                     notes: reminderDict["notes"]?.stringValue,
-                    dueDate: reminderDict["due_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) },
+                    dueDate: batchDueDate,
                     priority: reminderDict["priority"]?.intValue ?? 0,
                     calendarName: reminderDict["calendar_name"]?.stringValue,
                     calendarSource: reminderDict["calendar_source"]?.stringValue
@@ -1113,8 +1279,8 @@ class CheICalMCPServer {
         }
 
         let matchMode = arguments["match_mode"]?.stringValue ?? "any"
-        let startDate = arguments["start_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
-        let endDate = arguments["end_date"]?.stringValue.flatMap { dateFormatter.date(from: $0) }
+        let startDate: Date? = try arguments["start_date"]?.stringValue.map { try parseFlexibleDate($0) }
+        let endDate: Date? = try arguments["end_date"]?.stringValue.map { try parseFlexibleDate($0) }
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
 
@@ -1226,14 +1392,26 @@ class CheICalMCPServer {
                 results.append(["index": index, "success": false, "error": "title is required"])
                 continue
             }
-            guard let startStr = eventDict["start_time"]?.stringValue,
-                  let startDate = dateFormatter.date(from: startStr) else {
-                results.append(["index": index, "success": false, "error": "start_time must be a valid ISO8601 date"])
+            guard let startStr = eventDict["start_time"]?.stringValue else {
+                results.append(["index": index, "success": false, "error": "start_time is required"])
                 continue
             }
-            guard let endStr = eventDict["end_time"]?.stringValue,
-                  let endDate = dateFormatter.date(from: endStr) else {
-                results.append(["index": index, "success": false, "error": "end_time must be a valid ISO8601 date"])
+            let startDate: Date
+            do {
+                startDate = try parseFlexibleDate(startStr)
+            } catch {
+                results.append(["index": index, "success": false, "error": error.localizedDescription])
+                continue
+            }
+            guard let endStr = eventDict["end_time"]?.stringValue else {
+                results.append(["index": index, "success": false, "error": "end_time is required"])
+                continue
+            }
+            let endDate: Date
+            do {
+                endDate = try parseFlexibleDate(endStr)
+            } catch {
+                results.append(["index": index, "success": false, "error": error.localizedDescription])
                 continue
             }
 
@@ -1278,16 +1456,14 @@ class CheICalMCPServer {
 
     /// Feature 5: Check for conflicting events
     private func handleCheckConflicts(arguments: [String: Value]) async throws -> String {
-        guard let startStr = arguments["start_time"]?.stringValue,
-              let startDate = dateFormatter.date(from: startStr)
-        else {
-            throw ToolError.invalidParameter("start_time must be a valid ISO8601 date")
+        guard let startStr = arguments["start_time"]?.stringValue else {
+            throw ToolError.invalidParameter("start_time is required")
         }
-        guard let endStr = arguments["end_time"]?.stringValue,
-              let endDate = dateFormatter.date(from: endStr)
-        else {
-            throw ToolError.invalidParameter("end_time must be a valid ISO8601 date")
+        let startDate = try parseFlexibleDate(startStr)
+        guard let endStr = arguments["end_time"]?.stringValue else {
+            throw ToolError.invalidParameter("end_time is required")
         }
+        let endDate = try parseFlexibleDate(endStr)
 
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
@@ -1404,53 +1580,136 @@ class CheICalMCPServer {
         return formatJSON(response)
     }
 
-    /// Feature 8: Delete multiple events at once
+    /// Feature 8: Delete multiple events at once (by IDs or by date range)
     private func handleDeleteEventsBatch(arguments: [String: Value]) async throws -> String {
-        guard let eventIdsArray = arguments["event_ids"]?.arrayValue else {
-            throw ToolError.invalidParameter("event_ids array is required")
-        }
-
-        let eventIds = eventIdsArray.compactMap { $0.stringValue }
-        if eventIds.isEmpty {
-            throw ToolError.invalidParameter("event_ids must contain at least one event ID")
-        }
-
+        let dryRun = arguments["dry_run"]?.boolValue ?? true
         let spanStr = arguments["span"]?.stringValue ?? "this"
         let span: EKSpan = spanStr == "future" ? .futureEvents : .thisEvent
 
-        let result = try await eventKitManager.deleteEventsBatch(
-            identifiers: eventIds,
-            span: span
-        )
-
-        var response: [String: Any] = [
-            "total": eventIds.count,
-            "succeeded": result.successCount,
-            "failed": result.failedCount,
-            "span": spanStr
-        ]
-
-        if !result.failures.isEmpty {
-            response["failures"] = result.failures.map { failure -> [String: String] in
-                ["event_id": failure.identifier, "error": failure.error]
+        // Determine mode: by event_ids or by calendar + date range
+        if let eventIdsArray = arguments["event_ids"]?.arrayValue {
+            // Mode 1: Delete by event IDs
+            let eventIds = eventIdsArray.compactMap { $0.stringValue }
+            if eventIds.isEmpty {
+                throw ToolError.invalidParameter("event_ids must contain at least one event ID")
             }
-        }
 
-        return formatJSON(response)
+            if dryRun {
+                // Preview mode: show what would be deleted
+                var preview: [[String: Any]] = []
+                for id in eventIds {
+                    do {
+                        let event = try await eventKitManager.getEvent(identifier: id)
+                        preview.append([
+                            "event_id": id,
+                            "title": event.title ?? "",
+                            "start_date_local": localDateFormatter.string(from: event.startDate),
+                            "end_date_local": localDateFormatter.string(from: event.endDate),
+                            "calendar": event.calendar.title
+                        ])
+                    } catch {
+                        preview.append(["event_id": id, "error": error.localizedDescription])
+                    }
+                }
+                let response: [String: Any] = [
+                    "dry_run": true,
+                    "mode": "by_event_ids",
+                    "total": eventIds.count,
+                    "events_to_delete": preview,
+                    "message": "Set dry_run=false to execute deletion"
+                ]
+                return formatJSON(response)
+            }
+
+            let result = try await eventKitManager.deleteEventsBatch(identifiers: eventIds, span: span)
+            var response: [String: Any] = [
+                "dry_run": false,
+                "mode": "by_event_ids",
+                "total": eventIds.count,
+                "succeeded": result.successCount,
+                "failed": result.failedCount,
+                "span": spanStr
+            ]
+            if !result.failures.isEmpty {
+                response["failures"] = result.failures.map { ["event_id": $0.identifier, "error": $0.error] }
+            }
+            return formatJSON(response)
+
+        } else if let calendarName = arguments["calendar_name"]?.stringValue {
+            // Mode 2: Delete by calendar + date range
+            let calendarSource = arguments["calendar_source"]?.stringValue
+            let beforeDate: Date? = try arguments["before_date"]?.stringValue.map { try parseFlexibleDate($0) }
+            let afterDate: Date? = try arguments["after_date"]?.stringValue.map { try parseFlexibleDate($0) }
+
+            if beforeDate == nil && afterDate == nil {
+                throw ToolError.invalidParameter("At least one of before_date or after_date is required for calendar-based deletion")
+            }
+
+            // Determine search range
+            let searchStart = afterDate ?? Date.distantPast
+            let searchEnd = beforeDate ?? Date.distantFuture
+
+            let events = try await eventKitManager.listEvents(
+                startDate: searchStart,
+                endDate: searchEnd,
+                calendarName: calendarName,
+                calendarSource: calendarSource
+            )
+
+            if dryRun {
+                let preview = events.map { event -> [String: Any] in
+                    [
+                        "event_id": event.eventIdentifier ?? "",
+                        "title": event.title ?? "",
+                        "start_date_local": localDateFormatter.string(from: event.startDate),
+                        "end_date_local": localDateFormatter.string(from: event.endDate),
+                        "calendar": event.calendar.title
+                    ]
+                }
+                var response: [String: Any] = [
+                    "dry_run": true,
+                    "mode": "by_date_range",
+                    "calendar": calendarName,
+                    "total": events.count,
+                    "events_to_delete": preview,
+                    "message": "Set dry_run=false to execute deletion"
+                ]
+                if let afterDate = afterDate { response["after_date"] = localDateFormatter.string(from: afterDate) }
+                if let beforeDate = beforeDate { response["before_date"] = localDateFormatter.string(from: beforeDate) }
+                return formatJSON(response)
+            }
+
+            let eventIds = events.compactMap { $0.eventIdentifier }
+            let result = try await eventKitManager.deleteEventsBatch(identifiers: eventIds, span: span)
+            var response: [String: Any] = [
+                "dry_run": false,
+                "mode": "by_date_range",
+                "calendar": calendarName,
+                "total": eventIds.count,
+                "succeeded": result.successCount,
+                "failed": result.failedCount,
+                "span": spanStr
+            ]
+            if !result.failures.isEmpty {
+                response["failures"] = result.failures.map { ["event_id": $0.identifier, "error": $0.error] }
+            }
+            return formatJSON(response)
+
+        } else {
+            throw ToolError.invalidParameter("Either event_ids or calendar_name (with before_date/after_date) is required")
+        }
     }
 
     /// Feature 9: Find duplicate events across calendars
     private func handleFindDuplicateEvents(arguments: [String: Value]) async throws -> String {
-        guard let startStr = arguments["start_date"]?.stringValue,
-              let startDate = dateFormatter.date(from: startStr)
-        else {
-            throw ToolError.invalidParameter("start_date must be a valid ISO8601 date")
+        guard let startStr = arguments["start_date"]?.stringValue else {
+            throw ToolError.invalidParameter("start_date is required")
         }
-        guard let endStr = arguments["end_date"]?.stringValue,
-              let endDate = dateFormatter.date(from: endStr)
-        else {
-            throw ToolError.invalidParameter("end_date must be a valid ISO8601 date")
+        let startDate = try parseFlexibleDate(startStr)
+        guard let endStr = arguments["end_date"]?.stringValue else {
+            throw ToolError.invalidParameter("end_date is required")
         }
+        let endDate = try parseFlexibleDate(endStr)
 
         var calendarNames: [String]?
         if let namesArray = arguments["calendar_names"]?.arrayValue {
@@ -1505,6 +1764,73 @@ class CheICalMCPServer {
     }
 
     // MARK: - Helpers
+
+    /// Convert EKSourceType to human-readable string
+    private func sourceTypeString(_ sourceType: EKSourceType) -> String {
+        switch sourceType {
+        case .local: return "Local"
+        case .exchange: return "Exchange"
+        case .calDAV: return "CalDAV"
+        case .mobileMe: return "iCloud"
+        case .subscribed: return "Subscribed"
+        case .birthdays: return "Birthdays"
+        @unknown default: return "Unknown"
+        }
+    }
+
+    /// Parse flexible date formats, supporting:
+    /// 1. Full ISO8601: "2026-02-06T14:00:00+08:00"
+    /// 2. ISO8601 without timezone: "2026-02-06T14:00:00" (assumes system timezone)
+    /// 3. Date only: "2026-02-06" (00:00:00 system timezone)
+    /// 4. Time only: "14:00" or "14:00:00" (today at that time)
+    private func parseFlexibleDate(_ string: String) throws -> Date {
+        // 1. Full ISO8601 (with timezone)
+        if let date = dateFormatter.date(from: string) {
+            return date
+        }
+
+        // 2. ISO8601 without timezone (e.g., "2026-02-06T14:00:00")
+        if string.contains("T") && !string.contains("+") && !string.contains("Z") {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+            formatter.timeZone = TimeZone.current
+            if let date = formatter.date(from: string) {
+                return date
+            }
+        }
+
+        // 3. Date only (e.g., "2026-02-06")
+        if string.count == 10 && string.contains("-") && !string.contains("T") {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.timeZone = TimeZone.current
+            if let date = formatter.date(from: string) {
+                return date
+            }
+        }
+
+        // 4. Time only (e.g., "14:00" or "14:00:00")
+        if !string.contains("-") && string.contains(":") {
+            let components = string.split(separator: ":")
+            if components.count >= 2,
+               let hour = Int(components[0]),
+               let minute = Int(components[1]) {
+                let second = components.count >= 3 ? Int(components[2]) ?? 0 : 0
+                var cal = Calendar.current
+                cal.timeZone = TimeZone.current
+                let now = Date()
+                var dc = cal.dateComponents([.year, .month, .day], from: now)
+                dc.hour = hour
+                dc.minute = minute
+                dc.second = second
+                if let date = cal.date(from: dc) {
+                    return date
+                }
+            }
+        }
+
+        throw ToolError.invalidParameter("'\(string)' is not a valid date. Supported formats: ISO8601 (2026-02-06T14:00:00+08:00), datetime (2026-02-06T14:00:00), date (2026-02-06), time (14:00)")
+    }
 
     /// Get date range for quick time shortcuts
     /// - Parameters:

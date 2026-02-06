@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-02-06
+
+### Breaking Changes
+- **`list_events` response format**: Changed from plain array to `{"events": [...], "metadata": {...}}`
+- **`list_reminders` response format**: Changed from plain array to `{"reminders": [...], "metadata": {...}}`
+
+### Added
+- **Flexible date parsing**: All date parameters now accept 4 formats:
+  - ISO8601 with timezone: `2026-02-06T14:00:00+08:00`
+  - Datetime without timezone: `2026-02-06T14:00:00` (uses system timezone)
+  - Date only: `2026-02-06` (00:00:00 system timezone)
+  - Time only: `14:00` (today at that time)
+- **Fuzzy calendar matching**: Calendar lookup now falls back to case-insensitive matching; error messages include all available calendars/lists
+- **`list_calendars` source_type**: Each calendar now includes a `source_type` field (Local/iCloud/Exchange/CalDAV/Subscribed/Birthdays)
+- **`list_events` filter/sort/limit**: New parameters `filter` (all/past/future/all_day), `sort` (asc/desc), `limit`
+- **`list_reminders` filter/sort/limit**: New parameters `filter` (all/incomplete/completed/overdue), `sort` (due_date/creation_date/priority/title), `limit`; each reminder now includes `is_overdue` and `creation_date` fields
+- **`delete_events_batch` date range mode**: Can now delete by calendar + date range (not just by event IDs); includes `dry_run` mode (default: true) for safe preview before deletion
+- **Unit tests**: Added `FlexibleDateParsingTests.swift`
+
+### Summary
+Major quality-of-life improvements focused on developer experience. No new tools added (24 total), but significant enhancements to existing tools.
+
+---
+
 ## [0.9.0] - 2026-01-30
 
 ### Added
@@ -152,6 +176,7 @@ Previously, if `calendar_name` was not specified, events/reminders would be save
 
 | Version | Total Tools | New Tools |
 |---------|-------------|-----------|
+| 1.0.0   | 24          | Enhancement: flexible dates, fuzzy matching, filter/sort/limit, batch delete with dry_run |
 | 0.9.0   | 24          | +4 (update_calendar, search_reminders, create_reminders_batch, delete_reminders_batch) |
 | 0.6.0   | 20          | Enhancement: calendar_source parameter for disambiguation |
 | 0.5.0   | 20          | +2 (delete_events_batch, find_duplicate_events) |
