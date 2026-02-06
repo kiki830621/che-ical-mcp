@@ -187,6 +187,51 @@ class CheICalMCPServer {
                             "type": .string("array"),
                             "items": .object(["type": .string("integer")]),
                             "description": .string("List of minutes before the event to trigger reminders")
+                        ]),
+                        "recurrence": .object([
+                            "type": .string("object"),
+                            "description": .string("Recurrence rule. Example: {\"frequency\": \"weekly\", \"interval\": 1, \"days_of_week\": [2,6]} for every Mon & Fri."),
+                            "properties": .object([
+                                "frequency": .object([
+                                    "type": .string("string"),
+                                    "enum": .array([.string("daily"), .string("weekly"), .string("monthly"), .string("yearly")]),
+                                    "description": .string("Recurrence frequency")
+                                ]),
+                                "interval": .object([
+                                    "type": .string("integer"),
+                                    "description": .string("Repeat every N units (default 1). E.g., interval=2 with frequency=weekly means every other week.")
+                                ]),
+                                "end_date": .object([
+                                    "type": .string("string"),
+                                    "description": .string("When to stop recurring (ISO8601 date). Mutually exclusive with occurrence_count.")
+                                ]),
+                                "occurrence_count": .object([
+                                    "type": .string("integer"),
+                                    "description": .string("Maximum number of occurrences. Mutually exclusive with end_date.")
+                                ]),
+                                "days_of_week": .object([
+                                    "type": .string("array"),
+                                    "items": .object(["type": .string("integer")]),
+                                    "description": .string("For weekly: days to repeat (1=Sunday, 2=Monday, ..., 7=Saturday)")
+                                ]),
+                                "days_of_month": .object([
+                                    "type": .string("array"),
+                                    "items": .object(["type": .string("integer")]),
+                                    "description": .string("For monthly: days of month to repeat (1-31)")
+                                ])
+                            ]),
+                            "required": .array([.string("frequency")])
+                        ]),
+                        "structured_location": .object([
+                            "type": .string("object"),
+                            "description": .string("Structured location with coordinates. If provided, overrides the 'location' text field."),
+                            "properties": .object([
+                                "title": .object(["type": .string("string"), "description": .string("Location name (e.g., 'Office', 'Home')")]),
+                                "latitude": .object(["type": .string("number"), "description": .string("Latitude coordinate")]),
+                                "longitude": .object(["type": .string("number"), "description": .string("Longitude coordinate")]),
+                                "radius": .object(["type": .string("number"), "description": .string("Radius in meters (default 100)")])
+                            ]),
+                            "required": .array([.string("title")])
                         ])
                     ]),
                     "required": .array([.string("title"), .string("start_time"), .string("end_time"), .string("calendar_name")])
@@ -207,7 +252,56 @@ class CheICalMCPServer {
                         "location": .object(["type": .string("string"), "description": .string("New location")]),
                         "all_day": .object(["type": .string("boolean"), "description": .string("Set to true for all-day events, false for timed events")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Move event to a different calendar")]),
-                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")])
+                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")]),
+                        "recurrence": .object([
+                            "type": .string("object"),
+                            "description": .string("Set or replace recurrence rule. Example: {\"frequency\": \"weekly\", \"interval\": 1, \"days_of_week\": [2,6]} for every Mon & Fri."),
+                            "properties": .object([
+                                "frequency": .object([
+                                    "type": .string("string"),
+                                    "enum": .array([.string("daily"), .string("weekly"), .string("monthly"), .string("yearly")]),
+                                    "description": .string("Recurrence frequency")
+                                ]),
+                                "interval": .object([
+                                    "type": .string("integer"),
+                                    "description": .string("Repeat every N units (default 1)")
+                                ]),
+                                "end_date": .object([
+                                    "type": .string("string"),
+                                    "description": .string("When to stop recurring (ISO8601 date). Mutually exclusive with occurrence_count.")
+                                ]),
+                                "occurrence_count": .object([
+                                    "type": .string("integer"),
+                                    "description": .string("Maximum number of occurrences. Mutually exclusive with end_date.")
+                                ]),
+                                "days_of_week": .object([
+                                    "type": .string("array"),
+                                    "items": .object(["type": .string("integer")]),
+                                    "description": .string("For weekly: days to repeat (1=Sunday, 2=Monday, ..., 7=Saturday)")
+                                ]),
+                                "days_of_month": .object([
+                                    "type": .string("array"),
+                                    "items": .object(["type": .string("integer")]),
+                                    "description": .string("For monthly: days of month to repeat (1-31)")
+                                ])
+                            ]),
+                            "required": .array([.string("frequency")])
+                        ]),
+                        "clear_recurrence": .object([
+                            "type": .string("boolean"),
+                            "description": .string("Set to true to remove recurrence rule from event")
+                        ]),
+                        "structured_location": .object([
+                            "type": .string("object"),
+                            "description": .string("Structured location with coordinates. If provided, overrides the 'location' text field."),
+                            "properties": .object([
+                                "title": .object(["type": .string("string"), "description": .string("Location name (e.g., 'Office', 'Home')")]),
+                                "latitude": .object(["type": .string("number"), "description": .string("Latitude coordinate")]),
+                                "longitude": .object(["type": .string("number"), "description": .string("Longitude coordinate")]),
+                                "radius": .object(["type": .string("number"), "description": .string("Radius in meters (default 100)")])
+                            ]),
+                            "required": .array([.string("title")])
+                        ])
                     ]),
                     "required": .array([.string("event_id")])
                 ]),
@@ -266,7 +360,57 @@ class CheICalMCPServer {
                         "due_date": .object(["type": .string("string"), "description": .string("Optional due date in ISO8601 format with timezone (e.g., 2026-01-30T17:00:00+08:00)")]),
                         "priority": .object(["type": .string("integer"), "description": .string("Priority: 0=none, 1=high, 5=medium, 9=low")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Target reminder list name (use list_calendars with type='reminder' to see available options)")]),
-                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")])
+                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")]),
+                        "recurrence": .object([
+                            "type": .string("object"),
+                            "description": .string("Recurrence rule. Example: {\"frequency\": \"daily\"} for daily reminder."),
+                            "properties": .object([
+                                "frequency": .object([
+                                    "type": .string("string"),
+                                    "enum": .array([.string("daily"), .string("weekly"), .string("monthly"), .string("yearly")]),
+                                    "description": .string("Recurrence frequency")
+                                ]),
+                                "interval": .object([
+                                    "type": .string("integer"),
+                                    "description": .string("Repeat every N units (default 1)")
+                                ]),
+                                "end_date": .object([
+                                    "type": .string("string"),
+                                    "description": .string("When to stop recurring (ISO8601 date). Mutually exclusive with occurrence_count.")
+                                ]),
+                                "occurrence_count": .object([
+                                    "type": .string("integer"),
+                                    "description": .string("Maximum number of occurrences. Mutually exclusive with end_date.")
+                                ]),
+                                "days_of_week": .object([
+                                    "type": .string("array"),
+                                    "items": .object(["type": .string("integer")]),
+                                    "description": .string("For weekly: days to repeat (1=Sunday, 2=Monday, ..., 7=Saturday)")
+                                ]),
+                                "days_of_month": .object([
+                                    "type": .string("array"),
+                                    "items": .object(["type": .string("integer")]),
+                                    "description": .string("For monthly: days of month to repeat (1-31)")
+                                ])
+                            ]),
+                            "required": .array([.string("frequency")])
+                        ]),
+                        "location_trigger": .object([
+                            "type": .string("object"),
+                            "description": .string("Location-based trigger. Reminder fires when entering or leaving the geofence."),
+                            "properties": .object([
+                                "title": .object(["type": .string("string"), "description": .string("Location name (e.g., 'Home', 'Office')")]),
+                                "latitude": .object(["type": .string("number"), "description": .string("Latitude coordinate")]),
+                                "longitude": .object(["type": .string("number"), "description": .string("Longitude coordinate")]),
+                                "radius": .object(["type": .string("number"), "description": .string("Geofence radius in meters (default 100)")]),
+                                "proximity": .object([
+                                    "type": .string("string"),
+                                    "enum": .array([.string("enter"), .string("leave")]),
+                                    "description": .string("When to trigger: 'enter' when arriving, 'leave' when departing")
+                                ])
+                            ]),
+                            "required": .array([.string("title"), .string("latitude"), .string("longitude"), .string("proximity")])
+                        ])
                     ]),
                     "required": .array([.string("title"), .string("calendar_name")])
                 ]),
@@ -284,7 +428,27 @@ class CheICalMCPServer {
                         "due_date": .object(["type": .string("string"), "description": .string("New due date")]),
                         "priority": .object(["type": .string("integer"), "description": .string("New priority")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Move reminder to a different list")]),
-                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")])
+                        "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")]),
+                        "location_trigger": .object([
+                            "type": .string("object"),
+                            "description": .string("Location-based trigger. Reminder fires when entering or leaving the geofence."),
+                            "properties": .object([
+                                "title": .object(["type": .string("string"), "description": .string("Location name (e.g., 'Home', 'Office')")]),
+                                "latitude": .object(["type": .string("number"), "description": .string("Latitude coordinate")]),
+                                "longitude": .object(["type": .string("number"), "description": .string("Longitude coordinate")]),
+                                "radius": .object(["type": .string("number"), "description": .string("Geofence radius in meters (default 100)")]),
+                                "proximity": .object([
+                                    "type": .string("string"),
+                                    "enum": .array([.string("enter"), .string("leave")]),
+                                    "description": .string("When to trigger: 'enter' when arriving, 'leave' when departing")
+                                ])
+                            ]),
+                            "required": .array([.string("title"), .string("latitude"), .string("longitude"), .string("proximity")])
+                        ]),
+                        "clear_location_trigger": .object([
+                            "type": .string("boolean"),
+                            "description": .string("Set to true to remove location trigger from reminder")
+                        ])
                     ]),
                     "required": .array([.string("reminder_id")])
                 ]),
@@ -420,7 +584,31 @@ class CheICalMCPServer {
                                     "location": .object(["type": .string("string")]),
                                     "calendar_name": .object(["type": .string("string"), "description": .string("Target calendar name (required)")]),
                                     "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google')")]),
-                                    "all_day": .object(["type": .string("boolean")])
+                                    "all_day": .object(["type": .string("boolean")]),
+                                    "recurrence": .object([
+                                        "type": .string("object"),
+                                        "description": .string("Recurrence rule"),
+                                        "properties": .object([
+                                            "frequency": .object(["type": .string("string"), "enum": .array([.string("daily"), .string("weekly"), .string("monthly"), .string("yearly")])]),
+                                            "interval": .object(["type": .string("integer")]),
+                                            "end_date": .object(["type": .string("string")]),
+                                            "occurrence_count": .object(["type": .string("integer")]),
+                                            "days_of_week": .object(["type": .string("array"), "items": .object(["type": .string("integer")])]),
+                                            "days_of_month": .object(["type": .string("array"), "items": .object(["type": .string("integer")])])
+                                        ]),
+                                        "required": .array([.string("frequency")])
+                                    ]),
+                                    "structured_location": .object([
+                                        "type": .string("object"),
+                                        "description": .string("Structured location with coordinates"),
+                                        "properties": .object([
+                                            "title": .object(["type": .string("string")]),
+                                            "latitude": .object(["type": .string("number")]),
+                                            "longitude": .object(["type": .string("number")]),
+                                            "radius": .object(["type": .string("number")])
+                                        ]),
+                                        "required": .array([.string("title")])
+                                    ])
                                 ]),
                                 "required": .array([.string("title"), .string("start_time"), .string("end_time"), .string("calendar_name")])
                             ])
@@ -816,7 +1004,19 @@ class CheICalMCPServer {
             if let notes = event.notes { dict["notes"] = notes }
             if let location = event.location { dict["location"] = location }
             if let url = event.url { dict["url"] = url.absoluteString }
-            if event.hasRecurrenceRules { dict["is_recurring"] = true }
+            if event.hasRecurrenceRules, let rules = event.recurrenceRules {
+                dict["is_recurring"] = true
+                dict["recurrence_rules"] = rules.map { self.formatRecurrenceRule($0) }
+            }
+            if let structured = event.structuredLocation {
+                var locDict: [String: Any] = ["title": structured.title ?? ""]
+                if let geo = structured.geoLocation {
+                    locDict["latitude"] = geo.coordinate.latitude
+                    locDict["longitude"] = geo.coordinate.longitude
+                }
+                if structured.radius > 0 { locDict["radius"] = structured.radius }
+                dict["structured_location"] = locDict
+            }
             return dict
         }
 
@@ -861,6 +1061,9 @@ class CheICalMCPServer {
             alarmOffsets = alarmsArray.compactMap { $0.intValue }
         }
 
+        let recurrenceRule = try parseRecurrenceRule(from: arguments)
+        let structuredLocation = parseStructuredLocation(from: arguments)
+
         let event = try await eventKitManager.createEvent(
             title: title,
             startDate: startDate,
@@ -871,7 +1074,9 @@ class CheICalMCPServer {
             calendarName: calendarName,
             calendarSource: calendarSource,
             isAllDay: isAllDay,
-            alarmOffsets: alarmOffsets
+            alarmOffsets: alarmOffsets,
+            recurrenceRule: recurrenceRule,
+            structuredLocation: structuredLocation
         )
 
         return "Created event: \(event.title ?? title) (ID: \(event.eventIdentifier ?? "unknown"))"
@@ -892,6 +1097,10 @@ class CheICalMCPServer {
         let calendarSource = arguments["calendar_source"]?.stringValue
         let isAllDay = arguments["all_day"]?.boolValue
 
+        let recurrenceRule = try parseRecurrenceRule(from: arguments)
+        let clearRecurrence = arguments["clear_recurrence"]?.boolValue ?? false
+        let structuredLocation = parseStructuredLocation(from: arguments)
+
         let event = try await eventKitManager.updateEvent(
             identifier: eventId,
             title: title,
@@ -902,7 +1111,10 @@ class CheICalMCPServer {
             url: url,
             calendarName: calendarName,
             calendarSource: calendarSource,
-            isAllDay: isAllDay
+            isAllDay: isAllDay,
+            recurrenceRule: recurrenceRule,
+            clearRecurrence: clearRecurrence,
+            structuredLocation: structuredLocation
         )
 
         return "Updated event: \(event.title ?? "")"
@@ -1012,6 +1224,26 @@ class CheICalMCPServer {
                 dict["creation_date"] = dateFormatter.string(from: creationDate)
                 dict["creation_date_local"] = localDateFormatter.string(from: creationDate)
             }
+            // Location trigger info (from location-based alarms)
+            if let alarms = reminder.alarms {
+                for alarm in alarms {
+                    if let structured = alarm.structuredLocation {
+                        var triggerDict: [String: Any] = ["title": structured.title ?? ""]
+                        if let geo = structured.geoLocation {
+                            triggerDict["latitude"] = geo.coordinate.latitude
+                            triggerDict["longitude"] = geo.coordinate.longitude
+                        }
+                        if structured.radius > 0 { triggerDict["radius"] = structured.radius }
+                        switch alarm.proximity {
+                        case .enter: triggerDict["proximity"] = "enter"
+                        case .leave: triggerDict["proximity"] = "leave"
+                        default: break
+                        }
+                        dict["location_trigger"] = triggerDict
+                        break  // Only show first location trigger
+                    }
+                }
+            }
             return dict
         }
 
@@ -1042,13 +1274,18 @@ class CheICalMCPServer {
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
 
+        let recurrenceRule = try parseRecurrenceRule(from: arguments)
+        let locationTrigger = try parseLocationTrigger(from: arguments)
+
         let reminder = try await eventKitManager.createReminder(
             title: title,
             notes: notes,
             dueDate: dueDate,
             priority: priority,
             calendarName: calendarName,
-            calendarSource: calendarSource
+            calendarSource: calendarSource,
+            recurrenceRule: recurrenceRule,
+            locationTrigger: locationTrigger
         )
 
         return "Created reminder: \(reminder.title ?? title) (ID: \(reminder.calendarItemIdentifier))"
@@ -1066,6 +1303,9 @@ class CheICalMCPServer {
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
 
+        let locationTrigger = try parseLocationTrigger(from: arguments)
+        let clearLocationTrigger = arguments["clear_location_trigger"]?.boolValue ?? false
+
         let reminder = try await eventKitManager.updateReminder(
             identifier: reminderId,
             title: title,
@@ -1073,7 +1313,9 @@ class CheICalMCPServer {
             dueDate: dueDate,
             priority: priority,
             calendarName: calendarName,
-            calendarSource: calendarSource
+            calendarSource: calendarSource,
+            locationTrigger: locationTrigger,
+            clearLocationTrigger: clearLocationTrigger
         )
 
         return "Updated reminder: \(reminder.title ?? "")"
@@ -1168,6 +1410,26 @@ class CheICalMCPServer {
             if let completionDate = reminder.completionDate {
                 dict["completion_date"] = dateFormatter.string(from: completionDate)
                 dict["completion_date_local"] = localDateFormatter.string(from: completionDate)
+            }
+            // Location trigger info
+            if let alarms = reminder.alarms {
+                for alarm in alarms {
+                    if let structured = alarm.structuredLocation {
+                        var triggerDict: [String: Any] = ["title": structured.title ?? ""]
+                        if let geo = structured.geoLocation {
+                            triggerDict["latitude"] = geo.coordinate.latitude
+                            triggerDict["longitude"] = geo.coordinate.longitude
+                        }
+                        if structured.radius > 0 { triggerDict["radius"] = structured.radius }
+                        switch alarm.proximity {
+                        case .enter: triggerDict["proximity"] = "enter"
+                        case .leave: triggerDict["proximity"] = "leave"
+                        default: break
+                        }
+                        dict["location_trigger"] = triggerDict
+                        break
+                    }
+                }
             }
             return dict
         }
@@ -1308,6 +1570,19 @@ class CheICalMCPServer {
             if let notes = event.notes { dict["notes"] = notes }
             if let location = event.location { dict["location"] = location }
             if let url = event.url { dict["url"] = url.absoluteString }
+            if event.hasRecurrenceRules, let rules = event.recurrenceRules {
+                dict["is_recurring"] = true
+                dict["recurrence_rules"] = rules.map { self.formatRecurrenceRule($0) }
+            }
+            if let structured = event.structuredLocation {
+                var locDict: [String: Any] = ["title": structured.title ?? ""]
+                if let geo = structured.geoLocation {
+                    locDict["latitude"] = geo.coordinate.latitude
+                    locDict["longitude"] = geo.coordinate.longitude
+                }
+                if structured.radius > 0 { locDict["radius"] = structured.radius }
+                dict["structured_location"] = locDict
+            }
             return dict
         }
 
@@ -1353,7 +1628,19 @@ class CheICalMCPServer {
             if let notes = event.notes { dict["notes"] = notes }
             if let location = event.location { dict["location"] = location }
             if let url = event.url { dict["url"] = url.absoluteString }
-            if event.hasRecurrenceRules { dict["is_recurring"] = true }
+            if event.hasRecurrenceRules, let rules = event.recurrenceRules {
+                dict["is_recurring"] = true
+                dict["recurrence_rules"] = rules.map { self.formatRecurrenceRule($0) }
+            }
+            if let structured = event.structuredLocation {
+                var locDict: [String: Any] = ["title": structured.title ?? ""]
+                if let geo = structured.geoLocation {
+                    locDict["latitude"] = geo.coordinate.latitude
+                    locDict["longitude"] = geo.coordinate.longitude
+                }
+                if structured.radius > 0 { locDict["radius"] = structured.radius }
+                dict["structured_location"] = locDict
+            }
             return dict
         }
 
@@ -1416,6 +1703,10 @@ class CheICalMCPServer {
             }
 
             do {
+                // Parse recurrence and structured location from batch item
+                let batchRecurrence = try parseRecurrenceRule(from: eventDict)
+                let batchStructuredLocation = parseStructuredLocation(from: eventDict)
+
                 let event = try await eventKitManager.createEvent(
                     title: title,
                     startDate: startDate,
@@ -1427,7 +1718,8 @@ class CheICalMCPServer {
                     calendarSource: eventDict["calendar_source"]?.stringValue,
                     isAllDay: eventDict["all_day"]?.boolValue ?? false,
                     alarmOffsets: nil,
-                    recurrenceRule: nil
+                    recurrenceRule: batchRecurrence,
+                    structuredLocation: batchStructuredLocation
                 )
                 results.append([
                     "index": index,
@@ -1888,6 +2180,101 @@ class CheICalMCPServer {
             // Default to today
             return (startOfToday, calendar.date(byAdding: .day, value: 1, to: startOfToday)!, effectiveWeekStart)
         }
+    }
+
+    // MARK: - Recurrence & Location Helpers
+
+    private func parseRecurrenceRule(from arguments: [String: Value]) throws -> RecurrenceRuleInput? {
+        guard let recurrenceDict = arguments["recurrence"]?.objectValue else { return nil }
+
+        guard let freqStr = recurrenceDict["frequency"]?.stringValue else {
+            throw ToolError.invalidParameter("recurrence.frequency is required")
+        }
+
+        let frequency: RecurrenceRuleInput.Frequency
+        switch freqStr {
+        case "daily": frequency = .daily
+        case "weekly": frequency = .weekly
+        case "monthly": frequency = .monthly
+        case "yearly": frequency = .yearly
+        default: throw ToolError.invalidParameter("Invalid frequency: \(freqStr). Use daily/weekly/monthly/yearly.")
+        }
+
+        let interval = recurrenceDict["interval"]?.intValue ?? 1
+        let endDate: Date? = try recurrenceDict["end_date"]?.stringValue.map { try parseFlexibleDate($0) }
+        let occurrenceCount = recurrenceDict["occurrence_count"]?.intValue
+
+        var daysOfWeek: [Int]?
+        if let days = recurrenceDict["days_of_week"]?.arrayValue {
+            daysOfWeek = days.compactMap { $0.intValue }
+        }
+
+        var daysOfMonth: [Int]?
+        if let days = recurrenceDict["days_of_month"]?.arrayValue {
+            daysOfMonth = days.compactMap { $0.intValue }
+        }
+
+        return RecurrenceRuleInput(
+            frequency: frequency,
+            interval: interval,
+            endDate: endDate,
+            occurrenceCount: occurrenceCount,
+            daysOfWeek: daysOfWeek,
+            daysOfMonth: daysOfMonth
+        )
+    }
+
+    private func parseStructuredLocation(from arguments: [String: Value]) -> StructuredLocationInput? {
+        guard let dict = arguments["structured_location"]?.objectValue else { return nil }
+        guard let title = dict["title"]?.stringValue else { return nil }
+        return StructuredLocationInput(
+            title: title,
+            latitude: dict["latitude"]?.doubleValue,
+            longitude: dict["longitude"]?.doubleValue,
+            radius: dict["radius"]?.doubleValue
+        )
+    }
+
+    private func parseLocationTrigger(from arguments: [String: Value]) throws -> LocationTriggerInput? {
+        guard let dict = arguments["location_trigger"]?.objectValue else { return nil }
+        guard let title = dict["title"]?.stringValue else {
+            throw ToolError.invalidParameter("location_trigger.title is required")
+        }
+        guard let lat = dict["latitude"]?.doubleValue else {
+            throw ToolError.invalidParameter("location_trigger.latitude is required")
+        }
+        guard let lon = dict["longitude"]?.doubleValue else {
+            throw ToolError.invalidParameter("location_trigger.longitude is required")
+        }
+        let radius = dict["radius"]?.doubleValue ?? 100
+        let proximityStr = dict["proximity"]?.stringValue ?? "enter"
+        let proximity: EKAlarmProximity = proximityStr == "leave" ? .leave : .enter
+
+        return LocationTriggerInput(
+            title: title, latitude: lat, longitude: lon,
+            radius: radius, proximity: proximity
+        )
+    }
+
+    private func formatRecurrenceRule(_ rule: EKRecurrenceRule) -> [String: Any] {
+        var dict: [String: Any] = [
+            "frequency": ["daily", "weekly", "monthly", "yearly"][rule.frequency.rawValue],
+            "interval": rule.interval
+        ]
+        if let end = rule.recurrenceEnd {
+            if let endDate = end.endDate {
+                dict["end_date"] = localDateFormatter.string(from: endDate)
+            } else if end.occurrenceCount > 0 {
+                dict["occurrence_count"] = end.occurrenceCount
+            }
+        }
+        if let days = rule.daysOfTheWeek {
+            dict["days_of_week"] = days.map { $0.dayOfTheWeek.rawValue }
+        }
+        if let days = rule.daysOfTheMonth {
+            dict["days_of_month"] = days.map { $0.intValue }
+        }
+        return dict
     }
 
     private func formatJSON(_ value: Any) -> String {

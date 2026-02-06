@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-06
+
+### Added
+- **Recurrence rules**: `create_event`, `update_event`, `create_reminder`, and `create_events_batch` now accept a `recurrence` parameter to create recurring events/reminders (daily, weekly, monthly, yearly with interval, end date, occurrence count, days of week/month)
+- **`clear_recurrence`**: `update_event` supports `clear_recurrence: true` to remove recurrence rules from existing events
+- **Structured locations**: `create_event`, `update_event`, and `create_events_batch` now accept `structured_location` with coordinates (title, latitude, longitude, radius) for map-integrated event locations
+- **Location triggers**: `create_reminder` and `update_reminder` now accept `location_trigger` to set geofence-based reminders that fire on enter/leave
+- **`clear_location_trigger`**: `update_reminder` supports `clear_location_trigger: true` to remove location-based alarms
+- **Rich recurrence output**: `list_events`, `search_events`, and `list_events_quick` now return full `recurrence_rules` details (frequency, interval, end date, days) instead of just `is_recurring: true`
+- **Structured location output**: Event responses now include `structured_location` with coordinates when available
+- **Location trigger output**: Reminder responses now include `location_trigger` details when geofence alarms are set
+
+### Summary
+No new tools (24 total). Two major feature enhancements: recurring event/reminder creation (previously infrastructure-only, now fully exposed via MCP) and location-based triggers for both events and reminders.
+
+---
+
 ## [1.0.0] - 2026-02-06
 
 ### Breaking Changes

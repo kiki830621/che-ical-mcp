@@ -1,3 +1,4 @@
+import CoreLocation
 import EventKit
 import Foundation
 
@@ -271,7 +272,8 @@ actor EventKitManager {
         calendarSource: String? = nil,
         isAllDay: Bool = false,
         alarmOffsets: [Int]? = nil,
-        recurrenceRule: RecurrenceRuleInput? = nil
+        recurrenceRule: RecurrenceRuleInput? = nil,
+        structuredLocation: StructuredLocationInput? = nil
     ) async throws -> EKEvent {
         try await requestCalendarAccess()
 
@@ -306,6 +308,18 @@ actor EventKitManager {
             event.recurrenceRules = [createRecurrenceRule(from: rule)]
         }
 
+        // Set structured location (overrides location text if both provided)
+        if let loc = structuredLocation {
+            let structured = EKStructuredLocation(title: loc.title)
+            if let lat = loc.latitude, let lon = loc.longitude {
+                structured.geoLocation = CLLocation(latitude: lat, longitude: lon)
+            }
+            if let radius = loc.radius, radius > 0 {
+                structured.radius = radius
+            }
+            event.structuredLocation = structured
+        }
+
         try eventStore.save(event, span: .thisEvent)
         markNeedsRefresh()
         return event
@@ -323,7 +337,9 @@ actor EventKitManager {
         calendarSource: String? = nil,
         isAllDay: Bool? = nil,
         alarmOffsets: [Int]? = nil,
-        recurrenceRule: RecurrenceRuleInput? = nil
+        recurrenceRule: RecurrenceRuleInput? = nil,
+        clearRecurrence: Bool = false,
+        structuredLocation: StructuredLocationInput? = nil
     ) async throws -> EKEvent {
         try await requestCalendarAccess()
 
@@ -385,8 +401,22 @@ actor EventKitManager {
         }
 
         // Update recurrence rule
-        if let rule = recurrenceRule {
+        if clearRecurrence {
+            event.recurrenceRules = nil
+        } else if let rule = recurrenceRule {
             event.recurrenceRules = [createRecurrenceRule(from: rule)]
+        }
+
+        // Update structured location
+        if let loc = structuredLocation {
+            let structured = EKStructuredLocation(title: loc.title)
+            if let lat = loc.latitude, let lon = loc.longitude {
+                structured.geoLocation = CLLocation(latitude: lat, longitude: lon)
+            }
+            if let radius = loc.radius, radius > 0 {
+                structured.radius = radius
+            }
+            event.structuredLocation = structured
         }
 
         try eventStore.save(event, span: .thisEvent)
@@ -708,7 +738,8 @@ actor EventKitManager {
         calendarName: String? = nil,
         calendarSource: String? = nil,
         alarmOffsets: [Int]? = nil,
-        recurrenceRule: RecurrenceRuleInput? = nil
+        recurrenceRule: RecurrenceRuleInput? = nil,
+        locationTrigger: LocationTriggerInput? = nil
     ) async throws -> EKReminder {
         try await requestReminderAccess()
 
@@ -744,6 +775,17 @@ actor EventKitManager {
             reminder.recurrenceRules = [createRecurrenceRule(from: rule)]
         }
 
+        // Add location trigger
+        if let trigger = locationTrigger {
+            let structured = EKStructuredLocation(title: trigger.title)
+            structured.geoLocation = CLLocation(latitude: trigger.latitude, longitude: trigger.longitude)
+            structured.radius = trigger.radius > 0 ? trigger.radius : 100
+            let alarm = EKAlarm()
+            alarm.structuredLocation = structured
+            alarm.proximity = trigger.proximity
+            reminder.addAlarm(alarm)
+        }
+
         try eventStore.save(reminder, commit: true)
         markNeedsRefresh()
         return reminder
@@ -757,7 +799,9 @@ actor EventKitManager {
         priority: Int? = nil,
         calendarName: String? = nil,
         calendarSource: String? = nil,
-        alarmOffsets: [Int]? = nil
+        alarmOffsets: [Int]? = nil,
+        locationTrigger: LocationTriggerInput? = nil,
+        clearLocationTrigger: Bool = false
     ) async throws -> EKReminder {
         try await requestReminderAccess()
 
@@ -792,6 +836,30 @@ actor EventKitManager {
                 let alarm = EKAlarm(relativeOffset: TimeInterval(-offset * 60))
                 reminder.addAlarm(alarm)
             }
+        }
+
+        // Update location trigger
+        if clearLocationTrigger {
+            // Remove only location-based alarms
+            if let existingAlarms = reminder.alarms {
+                for alarm in existingAlarms where alarm.structuredLocation != nil {
+                    reminder.removeAlarm(alarm)
+                }
+            }
+        } else if let trigger = locationTrigger {
+            // Remove existing location-based alarms first
+            if let existingAlarms = reminder.alarms {
+                for alarm in existingAlarms where alarm.structuredLocation != nil {
+                    reminder.removeAlarm(alarm)
+                }
+            }
+            let structured = EKStructuredLocation(title: trigger.title)
+            structured.geoLocation = CLLocation(latitude: trigger.latitude, longitude: trigger.longitude)
+            structured.radius = trigger.radius > 0 ? trigger.radius : 100
+            let alarm = EKAlarm()
+            alarm.structuredLocation = structured
+            alarm.proximity = trigger.proximity
+            reminder.addAlarm(alarm)
         }
 
         try eventStore.save(reminder, commit: true)
@@ -982,6 +1050,21 @@ struct RecurrenceRuleInput {
     let occurrenceCount: Int?
     let daysOfWeek: [Int]?
     let daysOfMonth: [Int]?
+}
+
+struct StructuredLocationInput {
+    let title: String
+    let latitude: Double?
+    let longitude: Double?
+    let radius: Double?  // meters, default 100
+}
+
+struct LocationTriggerInput {
+    let title: String
+    let latitude: Double
+    let longitude: Double
+    let radius: Double    // meters, default 100
+    let proximity: EKAlarmProximity  // .enter or .leave
 }
 
 // MARK: - Errors
