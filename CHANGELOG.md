@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**#185 — batch and series deletions now record undo entries.**
+
+- **Fixed** — `delete_events_batch` records one `.batch` undo entry covering every event actually removed (partial failure includes only the successes); a single `undo` restores them all. `deleteEventSeries` records a `.deleteEvent` entry with the master snapshot (recurrence rules preserved, so undo rebuilds the whole series). The span:"all" batch path aggregates through a new `deleteEventSeriesBatch`, staying one undo unit instead of N entries. Previously neither path recorded anything — batch/series deletions were invisible to `undo` and `undo_history`, inconsistent with single `delete_event` (Refs #185).
+
+
 ## [1.15.0] - 2026-07-10
 
 **#175 — startup banner now detects the "versioned Claude Code host + ungranted EventKit" combination.**

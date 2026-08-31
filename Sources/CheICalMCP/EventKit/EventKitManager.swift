@@ -848,12 +848,62 @@ actor EventKitManager: EventKitManaging {
         // eventStore.event(withIdentifier:) returns the master event for recurring series,
         // so calling .futureEvents on it deletes the entire series.
         // If it's a non-recurring event, just delete it normally.
+        // #185 — snapshot BEFORE removal (EventSnapshot keeps raw EKRecurrenceRule,
+        // so undo rebuilds the whole series), consistent with single deleteEvent.
+        let snapshot = EventSnapshot(from: event)
         if event.hasRecurrenceRules {
             try eventStore.remove(event, span: .futureEvents)
         } else {
             try eventStore.remove(event, span: .thisEvent)
         }
         markNeedsRefresh()
+        await CalendarUndoManager.shared.record(.deleteEvent(snapshot: snapshot))
+    }
+
+    /// #185 — batch series deletion with a single aggregated undo unit, symmetric
+    /// with deleteEventsBatch. One undo restores every series actually removed
+    /// (partial failure: only the successes). Lives in the manager so undo
+    /// bookkeeping never leaks into the server layer.
+    func deleteEventSeriesBatch(identifiers: [String]) async throws -> BatchDeleteResult {
+        try await ensureCalendarAccess()
+
+        var successCount = 0
+        var failures: [(String, String)] = []
+        var undoSnapshots: [EventSnapshot] = []
+
+        for id in identifiers {
+            do {
+                guard let event = eventStore.event(withIdentifier: id) else {
+                    failures.append((id, "Event not found"))
+                    continue
+                }
+                let snapshot = EventSnapshot(from: event)
+                if event.hasRecurrenceRules {
+                    try eventStore.remove(event, span: .futureEvents)
+                } else {
+                    try eventStore.remove(event, span: .thisEvent)
+                }
+                successCount += 1
+                undoSnapshots.append(snapshot)
+            } catch {
+                let code = EventKitErrorSanitizer.writeFailureLog(
+                    handler: "deleteEventsBatch",
+                    identifier: id,
+                    error: error
+                )
+                failures.append((id, code))
+            }
+        }
+
+        markNeedsRefresh()
+        if !undoSnapshots.isEmpty {
+            await CalendarUndoManager.shared.record(.batch(undoSnapshots.map { .deleteEvent(snapshot: $0) }))
+        }
+        return BatchDeleteResult(
+            successCount: successCount,
+            failedCount: failures.count,
+            failures: failures
+        )
     }
 
     /// Get a single event by identifier
@@ -995,6 +1045,10 @@ actor EventKitManager: EventKitManaging {
 
         var successCount = 0
         var failures: [(String, String)] = []
+        // #185 — collect a snapshot per successful removal so the whole batch is
+        // one undo unit (mirrors the single-delete path at deleteEvent, which
+        // snapshots the MASTER before removal — including occurrence-level deletes).
+        var undoSnapshots: [EventSnapshot] = []
 
         for item in items {
             do {
@@ -1002,6 +1056,7 @@ actor EventKitManager: EventKitManaging {
                     failures.append((item.identifier, "Event not found"))
                     continue
                 }
+                let snapshot = EventSnapshot(from: masterEvent)
 
                 if masterEvent.hasRecurrenceRules, let date = item.occurrenceDate {
                     guard let occurrence = findOccurrence(identifier: item.identifier, on: date, in: masterEvent.timeZone) else {
@@ -1016,6 +1071,7 @@ actor EventKitManager: EventKitManaging {
                     try eventStore.remove(masterEvent, span: span)
                 }
                 successCount += 1
+                undoSnapshots.append(snapshot)
             } catch {
                 let code = EventKitErrorSanitizer.writeFailureLog(
                     handler: "deleteEventsBatch",
@@ -1027,6 +1083,11 @@ actor EventKitManager: EventKitManaging {
         }
 
         markNeedsRefresh()
+        // #185 — one .batch entry for the whole call (partial failure: only the
+        // events actually removed). A single undo restores every one of them.
+        if !undoSnapshots.isEmpty {
+            await CalendarUndoManager.shared.record(.batch(undoSnapshots.map { .deleteEvent(snapshot: $0) }))
+        }
         return BatchDeleteResult(
             successCount: successCount,
             failedCount: failures.count,
