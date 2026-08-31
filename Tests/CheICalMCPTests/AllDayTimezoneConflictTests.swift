@@ -29,27 +29,46 @@ final class AllDayTimezoneConflictTests: XCTestCase {
                       "got: \(errorText(result))")
     }
 
-    func testBatchItemRejectsAllDayWithTimezone() async throws {
+    func testBatchItemRejectsAllDayWithTimezoneWithoutAbortingSiblings() async throws {
         let server = try await CheICalMCPServer()
+        // R2 hardening: one violating item + one legal sibling. The sibling's fate
+        // differs by environment (CI: access-gate failure; local: calendar-not-found
+        // or created) but in EVERY environment it must get its OWN result entry whose
+        // error (if any) is NOT the all-day guard — proving the guard is per-item,
+        // not a batch abort.
         let result = await server.handleToolCallForTesting(
             name: "create_events_batch",
             arguments: [
-                "events": .array([.object([
-                    "title": .string("t"),
-                    "start_time": .string("2026-09-21"),
-                    "end_time": .string("2026-09-22"),
-                    "all_day": .bool(true),
-                    "timezone": .string("America/Los_Angeles"),
-                    "calendar_name": .string("Work")
-                ])])
+                "events": .array([
+                    .object([
+                        "title": .string("violating"),
+                        "start_time": .string("2026-09-21"),
+                        "end_time": .string("2026-09-22"),
+                        "all_day": .bool(true),
+                        "timezone": .string("America/Los_Angeles"),
+                        "calendar_name": .string("IDD-190-no-such-calendar")
+                    ]),
+                    .object([
+                        "title": .string("legal-sibling"),
+                        "start_time": .string("2026-09-23T09:00:00"),
+                        "end_time": .string("2026-09-23T10:00:00"),
+                        "calendar_name": .string("IDD-190-no-such-calendar")
+                    ])
+                ])
             ]
         )
-        // batch 是 per-item partial failure：整體回 success envelope，該 item success:false
         let text = errorText(result)
-        XCTAssertTrue(text.contains("\"failed\" : 1") || text.contains("\"failed\": 1"),
-                      "item must fail, got: \(text)")
-        XCTAssertTrue(text.contains("all-day") || text.contains("all_day"),
-                      "item error must name the conflict, got: \(text)")
+        XCTAssertTrue(text.contains("\"total\" : 2") || text.contains("\"total\": 2"),
+                      "both items must be processed, got: \(text)")
+        XCTAssertTrue(text.contains("floating"),
+                      "violating item's error must be the all-day guard, got: \(text)")
+        // The sibling reached past the guard: its index-1 entry exists and its error,
+        // whatever the environment produced, is not the guard message (only one
+        // occurrence of the guard text in the whole envelope).
+        XCTAssertEqual(text.components(separatedBy: "floating").count - 1, 1,
+                       "guard must fire exactly once (violating item only), got: \(text)")
+        XCTAssertTrue(text.contains("\"index\" : 1") || text.contains("\"index\": 1"),
+                      "legal sibling must have its own result entry, got: \(text)")
     }
 
     func testUpdateEventRejectsAllDayWithTimezone() async throws {
@@ -80,7 +99,13 @@ final class AllDayTimezoneConflictTests: XCTestCase {
                 "calendar_name": .string("Work")
             ]
         )
-        XCTAssertFalse(errorText(result).contains("floating"),
-                       "pure all-day must not trip the conflict guard, got: \(errorText(result))")
+        // R2 hardening: not-the-guard AND it reached the EventKit layer — the
+        // failure (in any environment) is access-gate or calendar-resolution,
+        // never the #190 conflict guard.
+        let text = errorText(result)
+        XCTAssertFalse(text.contains("floating"),
+                       "pure all-day must not trip the conflict guard, got: \(text)")
+        XCTAssertTrue(text.contains("Calendar") || text.contains("access") || text.contains("denied"),
+                      "pure all-day must reach the EventKit layer (calendar/access error), got: \(text)")
     }
 }
