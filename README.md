@@ -75,9 +75,11 @@ On first use, macOS prompts for **Calendar** and **Reminders** access — click 
 | Tool | Description |
 |------|-------------|
 | `list_events` | List events with filter/sort/limit (v1.0.0) |
-| `create_event` | Create an event (with reminders, location, URL, per-event timezone) |
+| `create_event` | Create an event (with reminders, location, URL, per-event timezone, recurrence with excluded dates) |
 | `update_event` | Update an event (including timezone, recurrence, span for recurring) |
 | `delete_event` | Delete an event (with occurrence support for recurring) |
+
+> **Recurrence exclusions (#182)**: `create_event` (and each `create_events_batch` item) accepts `recurrence.excluded_occurrence_dates` to skip specific dates in a recurring series at creation time — applied atomically (any failure rolls back the entire series), and one `undo` removes the whole series including exclusions. Known limitation: on idempotent retry, a duplicate series with an *identical* exclusion set is `skipped`, but extra exclusions already present on the existing series (beyond those requested) are not detected.
 
 </details>
 

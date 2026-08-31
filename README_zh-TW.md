@@ -75,9 +75,11 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 | 工具 | 說明 |
 |------|------|
 | `list_events` | 列出事件，支援篩選/排序/限制（v1.0.0） |
-| `create_event` | 建立事件（支援提醒、地點、網址、個別時區） |
+| `create_event` | 建立事件（支援提醒、地點、網址、個別時區、含排除日期的重複規則） |
 | `update_event` | 更新事件（含時區、重複規則、recurring span） |
 | `delete_event` | 刪除事件 |
+
+> **重複規則排除日期（#182）**：`create_event`（以及 `create_events_batch` 的每個項目）的 `recurrence` 支援 `excluded_occurrence_dates`，建立重複事件時直接略過指定日期 — 排除以原子方式套用（任一步失敗會回滾整個系列），一次 `undo` 即可移除整個系列（含排除）。已知限制：冪等重試時，排除集合**完全相同**的重複系列會回報 `skipped`，但既有系列上多出的排除日期（不在本次請求中的）不會被偵測。
 
 </details>
 

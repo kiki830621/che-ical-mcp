@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**#182 — `create_event` / `create_events_batch` recurrence now supports `excluded_occurrence_dates`.**
+
+- **Added** — an optional `excluded_occurrence_dates` string array inside the `recurrence` object of `create_event` and each `create_events_batch` item: skip specific dates in a recurring series at creation time (Refs #182). Same date grammar as `occurrence_date` (date-only values interpreted in the event timezone), max 100 entries, duplicates rejected. EventKit has no EXDATE primitive, so the implementation creates the series, resolves ALL excluded dates to their occurrences (pass 1), then removes them (pass 2, span `this`); any failure rolls back the entire new series via compensating delete — no partial state. If the rollback itself fails, the error reports the master event ID + the exclusions already applied. One `undo` removes the whole series including exclusions.
+- **Added** — responses include `excluded_occurrence_dates` (normalized `yyyy-MM-dd` in the event timezone) + `exclusion_count`; `create_events_batch` reports both per-item.
+- **Changed** — idempotent retry: duplicate detection (same title + start ±30s) with an identical exclusion set → `skipped`; a requested exclusion date still present on the existing series → conflict error. Known limitation: extra exclusions present on the existing series but not in the request are NOT detected.
+- **Changed** — `update_event` and `create_reminder` explicitly reject the field.
+
 ## [1.15.0] - 2026-07-10
 
 **#175 — startup banner now detects the "versioned Claude Code host + ungranted EventKit" combination.**

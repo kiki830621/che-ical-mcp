@@ -87,6 +87,28 @@ list_reminders          → See tasks by list or completion status
 2. create_event(title, start_time, end_time, calendar_name, location?, alarms_minutes_offsets?)
 ```
 
+### Recurring Series with Excluded Dates (#182)
+
+Skip specific dates (e.g. holidays) when creating a recurring event, via `recurrence.excluded_occurrence_dates`:
+
+```json
+create_event({
+  "title": "Weekly seminar",
+  "start_time": "2026-09-07T14:00:00+08:00",
+  "end_time": "2026-09-07T16:00:00+08:00",
+  "calendar_name": "Work",
+  "recurrence": {
+    "frequency": "weekly",
+    "excluded_occurrence_dates": ["2026-09-28", "2026-10-05"]
+  }
+})
+```
+
+- Same date grammar as `occurrence_date`; date-only values are interpreted in the event timezone. Max 100, duplicates rejected.
+- Applied atomically: if any exclusion fails, the entire new series is rolled back — no partial state. One `undo` removes the whole series including exclusions.
+- Response includes `excluded_occurrence_dates` (normalized `yyyy-MM-dd`) + `exclusion_count`. Also available per-item in `create_events_batch` (reported per-item).
+- `update_event` and `create_reminder` reject this field — it is creation-time only.
+
 ### Weekly Review
 ```
 1. list_events_quick(range: "this_week")  → See upcoming events
