@@ -1,6 +1,6 @@
 ---
 name: archive-event
-description: Archive a meeting or event into Calendar from a narrative source — a meeting notice, an announcement, a message thread — deriving the time from the thread's authoritative correction, recording the source in the event notes, and labelling any value the source did not state. Use when the user hands over a notice, forwards a thread, or asks to "put this meeting in the calendar" from something they read. Not for events whose time and place are already known and stated directly — use quick-event for that.
+description: Archive a meeting or event into Calendar from a narrative source — a meeting notice, an announcement, a message thread — deriving the time from the thread's authoritative correction, recording the source in the event notes, and labelling any value the source did not state. Use when the user hands over a notice, forwards a thread, or asks to "put this meeting in the calendar" from something they read. The boundary with quick-event is the SOURCE, not completeness: a fully specified notice still belongs here whenever the basis should be recorded; quick-event is for times the user states directly with nothing to cite.
 allowed-tools:
   - mcp__che-ical-mcp__list_calendars
   - mcp__che-ical-mcp__list_events
@@ -9,6 +9,10 @@ allowed-tools:
   - mcp__che-ical-mcp__update_event
   - mcp__che-ical-mcp__check_conflicts
   - mcp__che-ical-mcp__list_reminders
+  - Read
+  - Write
+  - Edit
+  - Bash
 ---
 
 # Archive an event from a source
@@ -29,16 +33,20 @@ Failures that raise an error can live in a README — the reader will look it up
 | `find_duplicate_events` tool | duplicates **across** calendars | within one calendar (it skips same-calendar pairs by design) |
 | `calendar-management` skill | tool catalogue and common workflows | the judgements below |
 
-Conflict checking is already solved. This skill adds the five steps that are not.
+Conflict checking exists as a tool — this skill still invokes `check_conflicts` itself before any create (it does not go through quick-event, so it inherits nothing). What it adds are the five judgements that no existing mechanism covers.
 
 ## Procedure
 
 ```
-source ──▶ 1. authoritative time ──▶ 2. update or create ──▶ 3. notes
+source ──▶ 1. authoritative time ──▶ 4. which calendar ──▶ 3. compose notes
+                                                               │
+                              2. update or create  ◀───────────┘
+                              （check_conflicts before create）
                                             │
-                                            ├──▶ 4. which calendar
                                             └──▶ 5. same-day deadlines
 ```
+
+Numbers refer to the sections below (ordered by topic, not execution): calendar choice and the notes body must be resolved BEFORE the create/update call that consumes them, and a `check_conflicts` on the resolved time precedes any `create_event`.
 
 ---
 
@@ -126,7 +134,9 @@ The common trigger is one person writing from two addresses — the institutiona
 
 ## 2. Update or create, keyed on the source
 
-Record a **source identifier** whenever the source provides one — for mail, the `Message-ID` — in two places: the `state/archives.json` index (primary) and the event notes (fallback + human-readable evidence; notes can be hand-edited later, the state file cannot).
+Record a **source identifier** whenever the source provides one, in two places: the `state/archives.json` index (primary) and the event notes' source line (fallback + human-readable evidence; notes may be hand-edited later, the state file is written only by this skill).
+
+**The stable key is the ORIGINAL notice's `Message-ID`** — the first message of the thread, not the correction being archived. A correction arrives in a different mail with its own Message-ID; keying on it would orphan the event archived from the original. When archiving any message of a thread, resolve the thread's first message and use ITS Message-ID for both lookup and write-back.
 
 Before creating anything, resolve the identifier:
 
@@ -160,7 +170,7 @@ Notes carry two lines. The source line is always present. The estimate line appe
 
 ### The source line
 
-Names the sender, the date, and the subject or title of the source.
+Names the sender, the date, the subject or title of the source, and the source identifier (`Message-ID` of the thread's original notice) — the same key the state index uses, so the notes-search fallback in §2 has a concrete string to find.
 
 Its purpose is recovery: months later someone opens the event in Calendar with none of the conversation in which it was archived. The notes have to answer "where did this come from" on their own.
 
