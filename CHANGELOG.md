@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Fixed** — `EventSnapshot` stored the original event's `EKRecurrenceRule` objects by reference; after the series was deleted the references went stale, and re-attaching them during undo made the restore save fail (EKCADErrorDomain 1010, #186 on-device). Rules are now captured as value snapshots (`RecurrenceRuleSnapshot`) and rebuilt as fresh objects on restore (Refs #191).
 - **Fixed** — `undo`/`redo` popped the record BEFORE executing it: a failed execution silently consumed the entry, so a retry undid the wrong, older operation. A failed undo/redo now restores the record to its stack so the user can fix the environment and retry.
+**#190 — `all_day` + `timezone` is now rejected instead of silently degrading.**
+
+- **Fixed** — pairing `all_day: true` with a `timezone` used to silently strip the all-day flag (EventKit keeps all-day events as floating calendar days; setting a timezone afterwards converts them to timed events), shifting occurrence days across the dateline and silently defeating `excluded_occurrence_dates` (#186 on-device finding). The pairing is now rejected with an explicit error at the handler layer (create_event / create_events_batch / update_event) plus defense-in-depth guards in the manager (including the resolved-state case where an existing all-day event is updated with a timezone; `clear_timezone` stays legal) (Refs #190).
 
 **#184 — a non-object `recurrence` value is now rejected instead of silently dropped.**
 

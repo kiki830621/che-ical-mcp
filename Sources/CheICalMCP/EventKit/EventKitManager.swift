@@ -543,6 +543,11 @@ actor EventKitManager: EventKitManaging {
         // Reject inverted / zero-duration timed events (symmetric with updateEvent — #160).
         try Self.validateTimeRange(start: startDate, end: endDate, isAllDay: isAllDay)
 
+        // #190 — defense-in-depth behind the handler guard (zero mutation).
+        if isAllDay, timezone != nil {
+            throw EventKitError.allDayTimezoneConflict
+        }
+
         // #182 — pre-save exclusion window check (zero mutation): every excluded
         // date must fall AFTER the first occurrence day (excluding DTSTART itself is
         // rejected — verify finding #5) and within end_date / occurrence_count bounds.
@@ -839,6 +844,13 @@ actor EventKitManager: EventKitManaging {
         if let n = notes { event.notes = n }
         if let l = location { event.location = l }
         if let a = isAllDay { event.isAllDay = a }
+
+        // #190 — resolved-state check: whether all-day came from this request or
+        // the stored event, pairing it with a non-nil timezone strips the flag.
+        // clear_timezone remains legal (nil-ing the tz of an all-day event is fine).
+        if event.isAllDay, timezone != nil, !clearTimezone {
+            throw EventKitError.allDayTimezoneConflict
+        }
 
         if let urlString = url, let eventURL = URL(string: urlString) {
             event.url = eventURL
@@ -2212,6 +2224,10 @@ enum EventKitError: LocalizedError {
     /// #182 — duplicate heuristic matched an existing series whose exclusion set
     /// differs from the request (a requested date still has a live occurrence).
     case exclusionConflict(existingId: String, date: String)
+    /// #190 — all-day events are floating calendar days; a timezone would strip
+    /// the all-day flag and shift occurrence days (defense-in-depth behind the
+    /// handler-level guard).
+    case allDayTimezoneConflict
 
     var errorDescription: String? {
         switch self {
@@ -2290,6 +2306,8 @@ enum EventKitError: LocalizedError {
             return "excluded_occurrence_dates: excluding \(excludedCount) date(s) from a series capped at \(occurrenceCount) occurrence(s) would remove every occurrence. Nothing was created — reduce the exclusions or don't create the series."
         case .exclusionRollbackFailed(let masterId, let appliedDates):
             return "excluded_occurrence_dates: exclusion failed AND the compensating delete failed. The series (event ID \(masterId)) still exists with these exclusions already applied: [\(appliedDates.joined(separator: ", "))]. Delete it manually with delete_event span:\"all\" or retry."
+        case .allDayTimezoneConflict:
+            return "all_day events are floating calendar days — timezone does not apply. Omit timezone, or set all_day to false for a timed event."
         case .exclusionConflict(let existingId, let date):
             return "An existing series (event ID \(existingId)) matches this event but still has an occurrence on \(date) — its exclusion set differs from the request. Not modifying the existing series; adjust it explicitly or change the request."
         }
