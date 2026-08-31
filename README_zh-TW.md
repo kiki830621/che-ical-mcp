@@ -467,6 +467,7 @@ macOS TCC（透明度、同意與控制）的隱私權限是**依應用程式**�
 
 | 版本 | 變更 |
 |------|------|
+| v1.16.1 | **型別安全＋真機驗證修復**（#184/#190/#191）：非物件 `recurrence` 改明確拒絕（原靜默丟棄）；`all_day`＋`timezone` 併用改明確拒絕（原靜默打掉 all-day 旗標、跨日界排除失效）；週期系列刪除的 undo 改由值快照重建 rule（修 EKCADErrorDomain 1010），且 undo/redo 失敗不再消費 entry。529 tests。 |
 | v1.16.0 | **週期排除＋undo 完整性＋archive-event skill**（#182/#185/#180）：create_event/batch 支援 `excluded_occurrence_dates`（two-pass 建立後移除、補償刪除、第一場不可排除）；batch/series 刪除現在記 undo entry（單一 `.batch` 單元）；undo 週期事件建立現在移除整個系列；新 `archive-event` skill — 來源歸檔含更正追蹤與 `.claude/.ical/` 專案設定。514 tests。 |
 | v1.15.0 | **Startup banner 偵測「versioned Claude Code host ＋ 未授權 EventKit」組合**（#175）：banner 解釋 path 旋轉並指向可操作修法；此訊號觸發時抑制矛盾的 `--setup` 建議行。另含 #173 parent-chain 診斷 polish。 |
 | v1.14.0 | **Claude Desktop 工具注入 drop 修復**（#166）：`mcpb/manifest.json` `display_name` 裡一個字面 `&` 讓 Desktop 1.18286.0 從每個對話 silent-drop 整台 29-tool server（Claude Code 不受影響）；改 `&` → `and`，以失敗實機單一變數介入證實 + `ManifestParityTests` regression guard。並把 `serverInfo.name` 對齊 kebab manifest id（hygiene；已實證駁斥為主因）。**#154 姊妹批次**：csreq-mismatch TCC drift 訊號（#155，`SecCodeCheckValidity` 自我檢查 silent-denial class）、`.mcpb` 拒絕訊息不再對已 `.denied` 情況死路指向 `--setup`（#158）、macOS badge 13.0 → 14.0（#157）、swift-nio 2.96 → 2.101（#159）。454 tests。 |
