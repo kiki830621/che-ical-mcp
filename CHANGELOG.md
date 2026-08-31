@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.16.0] - 2026-08-31
+
+**#180 — new `archive-event` plugin skill.**
+
+- **Added** — archive an event from a narrative source (meeting notice, announcement, mail thread): correction selection by sender identity + parsable time, update-vs-create keyed on the original notice's Message-ID (`.claude/.ical/state/archives.json` primary index), mandatory estimate labelling + source citation in notes, three-tier calendar choice (`.claude/.ical/config.yaml` → derivation → ask), same-day deadline surfacing. `quick-event` description sharpened to mark the boundary (Refs #180).
 
 **#185 — batch and series deletions now record undo entries.**
 
