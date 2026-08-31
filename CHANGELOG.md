@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**#190 — `all_day` + `timezone` is now rejected instead of silently degrading.**
+
+- **Fixed** — pairing `all_day: true` with a `timezone` used to silently strip the all-day flag (EventKit keeps all-day events as floating calendar days; setting a timezone afterwards converts them to timed events), shifting occurrence days across the dateline and silently defeating `excluded_occurrence_dates` (#186 on-device finding). The pairing is now rejected with an explicit error at the handler layer (create_event / create_events_batch / update_event) plus defense-in-depth guards in the manager (including the resolved-state case where an existing all-day event is updated with a timezone; `clear_timezone` stays legal) (Refs #190).
+
 **#184 — a non-object `recurrence` value is now rejected instead of silently dropped.**
 
 - **Fixed** — `"recurrence": "daily"` (string instead of object) used to be silently ignored across all four recurrence-parsing tools, creating a NON-recurring event while the response looked successful. Present-but-wrong-type now throws an explicit error with the correct shape (#101 F2 discipline; closes the last same-family gap after v1.16.0 fixed `end_date` / `occurrence_count` / `excluded_occurrence_dates`) (Refs #184).
