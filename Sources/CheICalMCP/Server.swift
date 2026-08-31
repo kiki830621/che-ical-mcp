@@ -2623,35 +2623,23 @@ class CheICalMCPServer {
         let deleteAll = spanStr == "all"
 
         if deleteAll {
-            // Deduplicate IDs for series deletion (each series only needs one delete)
+            // Deduplicate IDs for series deletion (each series only needs one delete).
+            // #185 — routed through the manager's batch method so the whole call is
+            // ONE undo unit (per-id deleteEventSeries would push N separate entries).
             let uniqueIds = Array(Set(items.map(\.identifier)))
-            var successCount = 0
-            var failures: [[String: String]] = []
-            for id in uniqueIds {
-                do {
-                    try await eventKitManager.deleteEventSeries(identifier: id)
-                    successCount += 1
-                } catch {
-                    failures.append([
-                        "event_id": id,
-                        "error": EventKitErrorSanitizer.writeFailureLog(
-                            handler: "deleteEventsBatch",
-                            identifier: id,
-                            error: error
-                        )
-                    ])
-                }
-            }
+            let result = try await eventKitManager.deleteEventSeriesBatch(identifiers: uniqueIds)
             var response: [String: Any] = [
                 "dry_run": false,
                 "mode": mode,
                 "total": uniqueIds.count,
-                "succeeded": successCount,
-                "failed": uniqueIds.count - successCount,
+                "succeeded": result.successCount,
+                "failed": result.failedCount,
                 "span": "all"
             ]
             for (k, v) in extraFields { response[k] = v }
-            if !failures.isEmpty { response["failures"] = failures }
+            if !result.failures.isEmpty {
+                response["failures"] = result.failures.map { ["event_id": $0.identifier, "error": $0.error] }
+            }
             return try formatJSON(response)
         }
 

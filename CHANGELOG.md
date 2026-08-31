@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**#185 — batch and series deletions now record undo entries.**
+
+- **Fixed** — `delete_events_batch` records one `.batch` undo entry covering every event actually removed (partial failure includes only the successes); a single `undo` restores them all. `deleteEventSeries` records a `.deleteEvent` entry with the master snapshot (recurrence rules preserved, so undo rebuilds the whole series). The span:"all" batch path aggregates through a new `deleteEventSeriesBatch`, staying one undo unit instead of N entries. Previously neither path recorded anything — batch/series deletions were invisible to `undo` and `undo_history`, inconsistent with single `delete_event` (Refs #185).
+
 **#182 — `create_event` / `create_events_batch` recurrence now supports `excluded_occurrence_dates`.**
 
 - **Added** — an optional `excluded_occurrence_dates` string array inside the `recurrence` object of `create_event` and each `create_events_batch` item: skip specific dates in a recurring series at creation time (Refs #182). Same date grammar as `occurrence_date` (date-only values interpreted in the event timezone), max 100 entries, duplicates rejected, and the series' first occurrence cannot be excluded (it anchors rollback, duplicate detection, and the returned event ID). EventKit has no EXDATE primitive, so the implementation creates the series, resolves ALL excluded dates to their occurrences (pass 1), then removes them (pass 2, span `this`); any failure removes the entire new series via compensating delete (best-effort all-or-nothing — a rollback failure is itself reported with the residual state, never silent). If the rollback itself fails, the error reports the master event ID + the exclusions already applied. One `undo` removes the whole series including exclusions.
