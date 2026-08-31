@@ -1461,30 +1461,36 @@ class CheICalMCPServer {
         guard let record = await CalendarUndoManager.shared.popUndo() else {
             return try actionResult(["action": "undo", "success": false, "message": "Nothing to undo"])
         }
+        // #191 — catch scope covers ONLY the execution (R2 fix): a response-
+        // serialization failure after a SUCCESSFUL undo must not restore the
+        // record (the operation really was undone). MCP handlers run serially,
+        // so no other pop can interleave between pop and restore.
+        let message: String
         do {
-            let message = try await eventKitManager.executeUndo(record.operation)
-            return try actionResult(["action": "undo", "success": true, "message": message])
+            message = try await eventKitManager.executeUndo(record.operation)
         } catch {
-            // #191 — a failed undo must not consume the entry: put it back so the
-            // user can fix the environment and retry (previously the record was
-            // silently lost and a retry undid the WRONG, older operation).
+            // A failed undo must not consume the entry: put it back so the user
+            // can fix the environment and retry (previously the record was lost
+            // and a retry undid the WRONG, older operation).
             await CalendarUndoManager.shared.restoreFailedUndo(record)
             throw error
         }
+        return try actionResult(["action": "undo", "success": true, "message": message])
     }
 
     private func handleRedo() async throws -> String {
         guard let record = await CalendarUndoManager.shared.popRedo() else {
             return try actionResult(["action": "redo", "success": false, "message": "Nothing to redo"])
         }
+        // #191 — same catch-scope discipline as handleUndo (execution only).
+        let message: String
         do {
-            let message = try await eventKitManager.executeRedo(record.operation)
-            return try actionResult(["action": "redo", "success": true, "message": message])
+            message = try await eventKitManager.executeRedo(record.operation)
         } catch {
-            // #191 — symmetric restore for redo.
             await CalendarUndoManager.shared.restoreFailedRedo(record)
             throw error
         }
+        return try actionResult(["action": "redo", "success": true, "message": message])
     }
 
     private func handleUndoHistory(arguments: [String: Value]) async throws -> String {
