@@ -1048,7 +1048,13 @@ actor EventKitManager: EventKitManaging {
         // #185 — collect a snapshot per successful removal so the whole batch is
         // one undo unit (mirrors the single-delete path at deleteEvent, which
         // snapshots the MASTER before removal — including occurrence-level deletes).
+        // Same-identifier dedupe (#185 verify F5): removing several occurrences of
+        // ONE recurring master yields progressively-shrunken master snapshots;
+        // replaying more than one would rebuild multiple series on undo. Only the
+        // FIRST (fullest) snapshot per identifier enters the undo unit — restoring
+        // it rebuilds the master as it stood before any of this batch's removals.
         var undoSnapshots: [EventSnapshot] = []
+        var undoSeenIdentifiers = Set<String>()
 
         for item in items {
             do {
@@ -1071,7 +1077,9 @@ actor EventKitManager: EventKitManaging {
                     try eventStore.remove(masterEvent, span: span)
                 }
                 successCount += 1
-                undoSnapshots.append(snapshot)
+                if undoSeenIdentifiers.insert(item.identifier).inserted {
+                    undoSnapshots.append(snapshot)
+                }
             } catch {
                 let code = EventKitErrorSanitizer.writeFailureLog(
                     handler: "deleteEventsBatch",
