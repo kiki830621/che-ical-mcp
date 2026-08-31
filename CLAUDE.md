@@ -26,6 +26,15 @@ Changes can be parked（暫存）— temporarily moved out of `openspec/changes/
 
 <!-- SPECTRA:END -->
 
+## MCP 功能驗證的表面選擇（.claude/rules/mcp-binary-version-testing.md）
+
+Binary 更新後 **session 內 MCP server 仍是舊版**（重啟才換）。驗證新功能前必做**行為探測**
+（呼叫新版才有的欄位看回應）確認測試表面版本，再依功能性質選路徑：stateless → `--cli`
+指 repo 內剛 build 的 binary；stateful（undo 等）→ 重啟後的 session MCP tools（`--cli`
+per-process stack 結構上驗不了；手動 spawn stdio 有 read-after-write confound）。
+三表面特性表與 2026-08-31 #186 事故記錄見
+[`.claude/rules/mcp-binary-version-testing.md`](.claude/rules/mcp-binary-version-testing.md)。
+
 ## Test Naming Convention
 
 `Tests/CheICalMCPTests/` follows three filename suffixes that signal what each test exercises. The suffix is **load-bearing** — pick the right one when adding a new file so reviewers (and Claude) can locate the right test layer fast.
