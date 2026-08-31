@@ -3044,7 +3044,13 @@ class CheICalMCPServer {
 
     private func parseRecurrenceRule(from arguments: [String: Value], defaultTimezone: TimeZone? = nil, allowsExclusions: Bool = false) throws -> RecurrenceRuleInput? {
         try rejectMisplacedExclusions(in: arguments)
-        guard let recurrenceDict = arguments["recurrence"]?.objectValue else { return nil }
+        // #184 — present-but-wrong-type must throw, not silently drop (#101 F2):
+        // a string like "recurrence": "daily" used to vanish, creating a
+        // NON-recurring event while the response looked successful.
+        guard let recurrenceValue = arguments["recurrence"] else { return nil }
+        guard let recurrenceDict = recurrenceValue.objectValue else {
+            throw ToolError.invalidParameter("recurrence must be an object (e.g. {\"frequency\": \"daily\"}), got a non-object value")
+        }
 
         guard let freqStr = recurrenceDict["frequency"]?.stringValue else {
             throw ToolError.invalidParameter("recurrence.frequency is required")
