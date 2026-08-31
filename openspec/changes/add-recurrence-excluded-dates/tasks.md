@@ -28,8 +28,8 @@
 
 ## 5. 文件
 
-- [ ] 5.1 [P] `README.md` ＋ `README_zh-TW.md` 工具表更新（create_event/create_events_batch 描述提及 exclusion）；D5 limitation（既有 series 多出的 exclusion 不偵測）文件化
-- [ ] 5.2 [P] `plugin/skills/calendar-management/SKILL.md` 使用指引＋ `CHANGELOG.md` 條目
+- [x] 5.1 [P] `README.md` ＋ `README_zh-TW.md` 工具表更新（create_event/create_events_batch 描述提及 exclusion）；D5 limitation（既有 series 多出的 exclusion 不偵測）文件化
+- [x] 5.2 [P] `plugin/skills/calendar-management/SKILL.md` 使用指引＋ `CHANGELOG.md` 條目
 
 
 ## ASSUMPTION（unattended run 偏差記錄）
