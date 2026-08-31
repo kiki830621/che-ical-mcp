@@ -1463,7 +1463,20 @@ class CheICalMCPServer {
         guard let record = await CalendarUndoManager.shared.popUndo() else {
             return try actionResult(["action": "undo", "success": false, "message": "Nothing to undo"])
         }
-        let message = try await eventKitManager.executeUndo(record.operation)
+        // #191 — catch scope covers ONLY the execution (R2 fix): a response-
+        // serialization failure after a SUCCESSFUL undo must not restore the
+        // record (the operation really was undone). MCP handlers run serially,
+        // so no other pop can interleave between pop and restore.
+        let message: String
+        do {
+            message = try await eventKitManager.executeUndo(record.operation)
+        } catch {
+            // A failed undo must not consume the entry: put it back so the user
+            // can fix the environment and retry (previously the record was lost
+            // and a retry undid the WRONG, older operation).
+            await CalendarUndoManager.shared.restoreFailedUndo(record)
+            throw error
+        }
         return try actionResult(["action": "undo", "success": true, "message": message])
     }
 
@@ -1471,7 +1484,14 @@ class CheICalMCPServer {
         guard let record = await CalendarUndoManager.shared.popRedo() else {
             return try actionResult(["action": "redo", "success": false, "message": "Nothing to redo"])
         }
-        let message = try await eventKitManager.executeRedo(record.operation)
+        // #191 — same catch-scope discipline as handleUndo (execution only).
+        let message: String
+        do {
+            message = try await eventKitManager.executeRedo(record.operation)
+        } catch {
+            await CalendarUndoManager.shared.restoreFailedRedo(record)
+            throw error
+        }
         return try actionResult(["action": "redo", "success": true, "message": message])
     }
 

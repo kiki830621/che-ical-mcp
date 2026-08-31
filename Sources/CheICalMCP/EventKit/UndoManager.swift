@@ -3,6 +3,65 @@ import Foundation
 
 // MARK: - Snapshots
 
+/// #191 — VALUE snapshot of an EKRecurrenceRule. The previous design stored the
+/// raw EKRecurrenceRule object; after the original event was deleted that
+/// reference went stale, and re-attaching it in applySnapshot made the save
+/// fail (EKCADErrorDomain 1010, #186 on-device). Rebuilding a fresh rule from
+/// plain values closes that class structurally.
+struct RecurrenceRuleSnapshot {
+    struct DayOfWeek {
+        let day: Int        // EKWeekday rawValue
+        let weekNumber: Int
+    }
+    let frequency: EKRecurrenceFrequency
+    let interval: Int
+    let daysOfTheWeek: [DayOfWeek]?
+    let daysOfTheMonth: [Int]?
+    let monthsOfTheYear: [Int]?
+    let weeksOfTheYear: [Int]?
+    let daysOfTheYear: [Int]?
+    let setPositions: [Int]?
+    let endDate: Date?
+    let occurrenceCount: Int?
+
+    init(from rule: EKRecurrenceRule) {
+        self.frequency = rule.frequency
+        self.interval = rule.interval
+        self.daysOfTheWeek = rule.daysOfTheWeek?.map { DayOfWeek(day: $0.dayOfTheWeek.rawValue, weekNumber: $0.weekNumber) }
+        self.daysOfTheMonth = rule.daysOfTheMonth?.map(\.intValue)
+        self.monthsOfTheYear = rule.monthsOfTheYear?.map(\.intValue)
+        self.weeksOfTheYear = rule.weeksOfTheYear?.map(\.intValue)
+        self.daysOfTheYear = rule.daysOfTheYear?.map(\.intValue)
+        self.setPositions = rule.setPositions?.map(\.intValue)
+        self.endDate = rule.recurrenceEnd?.endDate
+        // EKRecurrenceEnd.occurrenceCount is 0 when the end is date-based
+        let count = rule.recurrenceEnd?.occurrenceCount ?? 0
+        self.occurrenceCount = count > 0 ? count : nil
+    }
+
+    func rebuild() -> EKRecurrenceRule {
+        var end: EKRecurrenceEnd?
+        if let date = endDate {
+            end = EKRecurrenceEnd(end: date)
+        } else if let count = occurrenceCount {
+            end = EKRecurrenceEnd(occurrenceCount: count)
+        }
+        return EKRecurrenceRule(
+            recurrenceWith: frequency,
+            interval: interval,
+            daysOfTheWeek: daysOfTheWeek?.compactMap { d in
+                EKWeekday(rawValue: d.day).map { EKRecurrenceDayOfWeek($0, weekNumber: d.weekNumber) }
+            },
+            daysOfTheMonth: daysOfTheMonth?.map(NSNumber.init),
+            monthsOfTheYear: monthsOfTheYear?.map(NSNumber.init),
+            weeksOfTheYear: weeksOfTheYear?.map(NSNumber.init),
+            daysOfTheYear: daysOfTheYear?.map(NSNumber.init),
+            setPositions: setPositions?.map(NSNumber.init),
+            end: end
+        )
+    }
+}
+
 /// Snapshot of an EKEvent's properties for undo/redo restoration.
 struct EventSnapshot {
     let title: String
@@ -19,8 +78,8 @@ struct EventSnapshot {
     let structuredLocationLat: Double?
     let structuredLocationLon: Double?
     let structuredLocationRadius: Double?
-    // Recurrence rules stored as raw EKRecurrenceRule for re-application
-    let recurrenceRules: [EKRecurrenceRule]?
+    // #191 — recurrence rules stored as VALUE snapshots (never raw objects)
+    let recurrenceRules: [RecurrenceRuleSnapshot]?
     let timeZone: TimeZone?
 
     init(from event: EKEvent) {
@@ -38,7 +97,7 @@ struct EventSnapshot {
         self.structuredLocationLat = event.structuredLocation?.geoLocation?.coordinate.latitude
         self.structuredLocationLon = event.structuredLocation?.geoLocation?.coordinate.longitude
         self.structuredLocationRadius = event.structuredLocation?.radius
-        self.recurrenceRules = event.recurrenceRules
+        self.recurrenceRules = event.recurrenceRules?.map(RecurrenceRuleSnapshot.init)
         self.timeZone = event.timeZone
     }
 }
@@ -148,6 +207,21 @@ actor CalendarUndoManager {
     }
 
     /// Pop the most recent undone operation for redoing.
+    /// #191 — a FAILED executeUndo must not consume the entry. Contract: call
+    /// ONLY immediately after the corresponding popUndo threw during execution —
+    /// popUndo moved the record to the redo stack, so drop that copy and
+    /// re-append the record to the undo stack.
+    func restoreFailedUndo(_ record: UndoRecord) {
+        if !redoStack.isEmpty { redoStack.removeLast() }
+        undoStack.append(record)
+    }
+
+    /// #191 — symmetric restore for a failed executeRedo (same call contract).
+    func restoreFailedRedo(_ record: UndoRecord) {
+        if !undoStack.isEmpty { undoStack.removeLast() }
+        redoStack.append(record)
+    }
+
     func popRedo() -> UndoRecord? {
         guard let record = redoStack.popLast() else { return nil }
         undoStack.append(record)

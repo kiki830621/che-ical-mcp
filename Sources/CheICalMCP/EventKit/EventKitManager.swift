@@ -2105,7 +2105,10 @@ actor EventKitManager: EventKitManaging {
 
         // Recurrence
         if let rules = snapshot.recurrenceRules {
-            event.recurrenceRules = rules
+            // #191 — rebuild fresh EKRecurrenceRule objects from value snapshots;
+            // re-attaching the original (now-stale) rule objects made the restore
+            // save fail with EKCADErrorDomain 1010 (#186 on-device).
+            event.recurrenceRules = rules.map { $0.rebuild() }
         }
 
         // Timezone
