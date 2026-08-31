@@ -28,11 +28,13 @@ Changes can be parked（暫存）— temporarily moved out of `openspec/changes/
 
 ## MCP 功能驗證的表面選擇（.claude/rules/mcp-binary-version-testing.md）
 
-Binary 更新後 **session 內 MCP server 仍是舊版**（重啟才換）。驗證新功能前必做**行為探測**
-（呼叫新版才有的欄位看回應）確認測試表面版本，再依功能性質選路徑：stateless → `--cli`
-指 repo 內剛 build 的 binary；stateful（undo 等）→ 重啟後的 session MCP tools（`--cli`
-per-process stack 結構上驗不了；手動 spawn stdio 有 read-after-write confound）。
-三表面特性表與 2026-08-31 #186 事故記錄見
+Binary 更新後 **session 內 MCP server 仍是舊版**（重啟才換 — 且重啟也不保證換：plugin
+wrapper 的 auto-download 會被 Claude Code 的 15 分鐘 connection-failure cache 安靜跳過）。
+驗證新功能前必做**行為探測**（呼叫新版才有的欄位看回應）確認測試表面版本，再依功能性質
+選路徑：stateless → `--cli` 指 repo 內剛 build 的 binary；stateful（undo 等）→ 重啟後的
+session MCP tools（`--cli` per-process stack 結構上驗不了；手動 spawn stdio 有
+read-after-write confound）。三表面特性表、wrapper failure-cache 坑與 2026-08-31
+#186/v1.16.1 事故記錄見
 [`.claude/rules/mcp-binary-version-testing.md`](.claude/rules/mcp-binary-version-testing.md)。
 
 ## Test Naming Convention

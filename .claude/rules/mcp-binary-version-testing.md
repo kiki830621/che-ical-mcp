@@ -4,6 +4,9 @@ Binary 更新（release／plugin-update）後，**session 內的 MCP server 仍�
 session 啟動時 spawn 的長駐 process，重啟 Claude Code（或 Claude Desktop `Cmd+Q`）
 之前不會換 binary。驗證新功能時選錯表面，會拿舊 binary 的行為當新功能的證據（或反過來）。
 
+**而且「重啟＝換新版」也不保證成立**（wrapper failure-cache 坑，見下節）— 所以
+行為探測不能因為「我剛重啟過」而省略。
+
 ## 鐵律：動手前先做行為探測，不憑假設判定版本
 
 對測試表面呼叫**新版才有的欄位或 tool**，從回應判定版本。例：v1.16.0 的
@@ -33,6 +36,34 @@ session 啟動時 spawn 的長駐 process，重啟 Claude Code（或 Claude Desk
 3. Release／plugin-update 完成的報告**必須明示**：「本 session 的 MCP server 仍為
    舊版 vX，重啟後生效」— 別讓下一個動作在錯的表面上驗證。
 
+## Wrapper failure-cache 坑：重啟後 binary 仍可能是舊版（2026-08-31 實踩）
+
+Plugin 的 wrapper（`plugins cache .../bin/*-wrapper.sh`）負責 auto-download：spawn 時比對
+plugin.json 版本 vs `~/bin/.<Binary>.version` sidecar，不一致就下載 + atomic swap。
+**它的前提是 wrapper 被 spawn** — 而有一條安靜的失效鏈會讓這個前提落空：
+
+1. Release 後第一次重啟：wrapper 開始下載新 binary（19MB 級）→ 超過 Claude Code 的
+   30 秒 MCP connect timeout → `plugin:<name>` 連線標記失敗；
+2. Claude Code 把該失敗 **cache 15 分鐘**（「Skipping connection (recent failure cached)」）；
+3. 15 分鐘內再重啟：plugin server 連線**直接跳過、wrapper 不被 spawn** → auto-download
+   不觸發 → `~/bin` 停在舊版；
+4. 整條鏈**無錯誤訊息** — 唯一可見訊號是 session-start hook 的「vX → vY available」提示，
+   以及行為探測的結果。
+
+**處置**（不是手動 curl — 用 plugin 自己的機制）：直接執行 plugin cache 裡最新版目錄的
+wrapper 一次，stdin 給 EOF 讓 server 下載完即退出，再驗版本與 sidecar：
+
+```bash
+WRAPPER=~/.claude/plugins/cache/<mp>/<plugin>/<newest-ver>/bin/*-wrapper.sh
+timeout 90 $WRAPPER </dev/null 2>&1 | head -5   # 看到 "installed vX.Y.Z" 即成功
+~/bin/<Binary> --version && cat ~/bin/.<Binary>.version
+```
+
+注意：換完檔案後，**已在跑的 server process 仍是舊 binary**（atomic mv 不影響 running
+process 的 inode）— 本 session 的探測結果不會因此改變，下次 spawn 才是新版。drift banner
+的「N stale processes」多半就是這些活 session 的舊 server，各 client 重啟自然汰換，
+不需要 pkill。
+
 ## 事故記錄（為什麼是規則不是備忘）
 
 2026-08-31 #186 undo 補驗：v1.16.0 出貨後要驗 #182/#185 的 undo 新行為。先假設
@@ -41,3 +72,10 @@ session MCP 不可用（未探測）→ 手寫 stdio harness → 三個 FAIL 全
 探測，一次呼叫即確認 server 為 v1.15.0。手動 harness 唯一的淨收穫是 tool 回應級
 證據（#185 batch undo 機制證實）與一個真訊號（series restore `ekcaderrordomain
 1010`）— 但兩者本可在重啟後 30 秒內以乾淨表面取得。
+
+2026-08-31 v1.16.1 wrapper failure-cache：release + plugin sync 完成後重啟，預期
+「wrapper 會 auto-download、session server 是新版」— 行為探測卻顯示 server 仍是
+v1.16.0。追查發現 plugin server 連線被 15 分鐘 failure cache 跳過、wrapper 從未被
+spawn（上節整條鏈）。手動執行 plugin cache 的 wrapper 一次即完成下載。若當時未探測
+而直接在 session MCP 表面驗 v1.16.1 的新行為，會拿舊 binary 的結果當新版證據 —
+正是本規則鐵律要防的方向之二。
