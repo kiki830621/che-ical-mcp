@@ -1,6 +1,6 @@
 ---
 name: quick-event
-description: Quickly create a calendar event from natural language
+description: Quickly create a calendar event from natural language when the time and place are already known and stated directly. For deriving an event from a source — a meeting notice, an announcement, a message thread — where the time may have been corrected and the basis should be recorded, use the archive-event skill instead.
 allowed-tools:
   - mcp__che-ical-mcp__list_calendars
   - mcp__che-ical-mcp__check_conflicts
