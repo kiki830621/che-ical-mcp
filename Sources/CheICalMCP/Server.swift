@@ -247,7 +247,7 @@ class CheICalMCPServer {
                         "url": .object(["type": .string("string"), "description": .string("Optional event URL")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Target calendar name (use list_calendars to see available options)")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple calendars share the same name.")]),
-                        "all_day": .object(["type": .string("boolean"), "description": .string("Whether this is an all-day event")]),
+                        "all_day": .object(["type": .string("boolean"), "description": .string("Whether this is an all-day event. Mutually exclusive with timezone — all-day events are floating calendar days (#190).")]),
                         "alarms_minutes_offsets": .object([
                             "type": .string("array"),
                             "items": .object(["type": .string("integer")]),
@@ -1317,6 +1317,7 @@ class CheICalMCPServer {
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
         let isAllDay = arguments["all_day"]?.boolValue ?? false
+        try rejectAllDayTimezoneConflict(allDay: isAllDay, timezone: timezone)   // #190
 
         var alarmOffsets: [Int]?
         if let alarmsArray = arguments["alarms_minutes_offsets"]?.arrayValue {
@@ -1382,6 +1383,7 @@ class CheICalMCPServer {
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
         let isAllDay = arguments["all_day"]?.boolValue
+        try rejectAllDayTimezoneConflict(allDay: isAllDay ?? false, timezone: timezone)   // #190 — same-request pairing
         let occurrenceDate: Date? = try arguments["occurrence_date"]?.stringValue.map { try parseFlexibleDate($0, defaultTimezone: timezone) }
 
         let spanStr = arguments["span"]?.stringValue ?? "this"
@@ -2391,6 +2393,7 @@ class CheICalMCPServer {
             }
 
             do {
+                try rejectAllDayTimezoneConflict(allDay: eventDict["all_day"]?.boolValue ?? false, timezone: batchTimezone)   // #190
                 // Parse recurrence and structured location from batch item
                 let batchRecurrence = try parseRecurrenceRule(from: eventDict, defaultTimezone: batchTimezone, allowsExclusions: true)
                 let batchStructuredLocation = parseStructuredLocation(from: eventDict)
@@ -3036,6 +3039,16 @@ class CheICalMCPServer {
     /// top-level keys, MCP SDK does no argument validation, and the schemas don't set
     /// `additionalProperties: false`. Reject explicitly at every event/reminder handler
     /// that parses recurrence (#101 F2 — never silently drop).
+    /// #190 — all_day + timezone must be rejected, not silently degraded: EventKit
+    /// keeps all-day events as floating calendar days (timeZone = nil); setting a
+    /// timezone after isAllDay strips the all-day flag, shifts occurrence days
+    /// across the dateline, and silently defeats #182 exclusions (#186 on-device).
+    private func rejectAllDayTimezoneConflict(allDay: Bool, timezone: TimeZone?) throws {
+        if allDay, timezone != nil {
+            throw ToolError.invalidParameter("all_day events are floating calendar days — timezone does not apply. Omit timezone (date-only start/end already name the calendar day), or set all_day to false for a timed event.")
+        }
+    }
+
     private func rejectMisplacedExclusions(in arguments: [String: Value]) throws {
         if arguments["excluded_occurrence_dates"] != nil {
             throw ToolError.invalidParameter("excluded_occurrence_dates must be inside the recurrence object (supported on create_event and create_events_batch only) — it is not a top-level parameter")
