@@ -108,3 +108,79 @@ final class RecurrenceExclusionValidationTests: XCTestCase {
         XCTAssertTrue(errorText(result).contains("100"))
     }
 }
+
+// MARK: - Verify round 1 fixes (#182 findings 3/4/5/6/9)
+
+extension RecurrenceExclusionValidationTests {
+
+    /// Finding #3 — top-level misplacement must be rejected, not silently dropped.
+    func testTopLevelExcludedDatesRejectedOnCreateEvent() async throws {
+        let server = try await CheICalMCPServer()
+        let result = await server.handleToolCallForTesting(
+            name: "create_event",
+            arguments: [
+                "title": .string("t"),
+                "start_time": .string("2026-09-01T09:00:00"),
+                "end_time": .string("2026-09-01T10:00:00"),
+                "excluded_occurrence_dates": .array([.string("2026-09-07")])
+            ]
+        )
+        XCTAssertEqual(result.isError, true)
+        XCTAssertTrue(errorText(result).contains("top-level"),
+                      "got: \(errorText(result))")
+    }
+
+    /// Finding #3 — same guard on update_event's top level.
+    func testTopLevelExcludedDatesRejectedOnUpdateEvent() async throws {
+        let server = try await CheICalMCPServer()
+        let result = await server.handleToolCallForTesting(
+            name: "update_event",
+            arguments: [
+                "event_id": .string("x"),
+                "excluded_occurrence_dates": .array([.string("2026-09-07")])
+            ]
+        )
+        XCTAssertEqual(result.isError, true)
+        XCTAssertTrue(errorText(result).contains("excluded_occurrence_dates"))
+    }
+
+    /// Finding #4 — JSON-number end_date must throw, not silently drop the window bound.
+    func testNumericEndDateRejected() async throws {
+        let server = try await CheICalMCPServer()
+        let result = await server.handleToolCallForTesting(
+            name: "create_event",
+            arguments: [
+                "title": .string("t"),
+                "start_time": .string("2026-09-01T09:00:00"),
+                "end_time": .string("2026-09-01T10:00:00"),
+                "calendar_name": .string("Work"),
+                "recurrence": .object([
+                    "frequency": .string("daily"),
+                    "end_date": .int(20260930)
+                ])
+            ]
+        )
+        XCTAssertEqual(result.isError, true)
+        XCTAssertTrue(errorText(result).contains("end_date"))
+    }
+
+    /// Finding #9 — stringly-typed occurrence_count must throw (symmetry with interval).
+    func testStringOccurrenceCountRejected() async throws {
+        let server = try await CheICalMCPServer()
+        let result = await server.handleToolCallForTesting(
+            name: "create_event",
+            arguments: [
+                "title": .string("t"),
+                "start_time": .string("2026-09-01T09:00:00"),
+                "end_time": .string("2026-09-01T10:00:00"),
+                "calendar_name": .string("Work"),
+                "recurrence": .object([
+                    "frequency": .string("daily"),
+                    "occurrence_count": .string("5")
+                ])
+            ]
+        )
+        XCTAssertEqual(result.isError, true)
+        XCTAssertTrue(errorText(result).contains("occurrence_count"))
+    }
+}

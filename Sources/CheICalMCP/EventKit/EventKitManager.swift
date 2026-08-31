@@ -544,17 +544,10 @@ actor EventKitManager: EventKitManaging {
         try Self.validateTimeRange(start: startDate, end: endDate, isAllDay: isAllDay)
 
         // #182 — pre-save exclusion window check (zero mutation): every excluded
-        // date must fall on/after the first occurrence day and on/before end_date.
+        // date must fall AFTER the first occurrence day (excluding DTSTART itself is
+        // rejected — verify finding #5) and within end_date / occurrence_count bounds.
         if let rule = recurrenceRule, let excluded = rule.excludedOccurrenceDates, !excluded.isEmpty {
-            var cal = Calendar.current
-            if let tz = timezone { cal.timeZone = tz }
-            let firstDay = cal.startOfDay(for: startDate)
-            for date in excluded {
-                let day = cal.startOfDay(for: date)
-                if day < firstDay || (rule.endDate.map { day > $0 } ?? false) {
-                    throw EventKitError.exclusionOutOfWindow(date: Self.formatExclusionDay(date, timezone: timezone))
-                }
-            }
+            try Self.validateExclusionWindow(excluded: excluded, startDate: startDate, rule: rule, timezone: timezone)
         }
 
         // Resolve calendar first (required for both duplicate check and creation)
@@ -571,7 +564,19 @@ actor EventKitManager: EventKitManaging {
             // exclusions on the existing series are NOT detected — documented limitation.
             if let rule = recurrenceRule, let excluded = rule.excludedOccurrenceDates, !excluded.isEmpty,
                let existingId = existing.eventIdentifier {
-                let tz = existing.timeZone ?? timezone
+                // Verify finding #8 — absence != exclusion: a non-recurring existing
+                // event trivially has no occurrence on any future date, which would
+                // read as "already excluded". Require a recurring existing series
+                // before the absence check can mean anything.
+                guard existing.hasRecurrenceRules else {
+                    throw EventKitError.exclusionConflict(
+                        existingId: existingId,
+                        date: Self.formatExclusionDay(excluded[0], timezone: timezone))
+                }
+                // Verify finding #7 — request timezone first: the requested dates were
+                // normalized in the request timezone; probing day windows in a
+                // different zone can hit the wrong calendar day (false skipped).
+                let tz = timezone ?? existing.timeZone
                 for date in excluded {
                     if findOccurrence(identifier: existingId, on: date, in: tz) != nil {
                         throw EventKitError.exclusionConflict(
@@ -656,6 +661,48 @@ actor EventKitManager: EventKitManaging {
         markNeedsRefresh()
         await CalendarUndoManager.shared.record(.createEvent(id: event.eventIdentifier ?? "", title: event.title ?? title))
         return CreateEventResult(event: event, isDuplicate: false)
+    }
+
+    /// #182 — pre-save exclusion window validation. Static + EventKit-free so CI can
+    /// exercise it directly (the createEvent call path fast-fails at
+    /// `ensureCalendarAccess` under CI=1 before reaching this).
+    static func validateExclusionWindow(excluded: [Date], startDate: Date, rule: RecurrenceRuleInput, timezone: TimeZone?) throws {
+        var cal = Calendar.current
+        if let tz = timezone { cal.timeZone = tz }
+        let firstDay = cal.startOfDay(for: startDate)
+
+        // Verify finding #6 — the whole series must not be emptied out.
+        if let count = rule.occurrenceCount, count > 0, excluded.count >= count {
+            throw EventKitError.exclusionRemovesAllOccurrences(excludedCount: excluded.count, occurrenceCount: count)
+        }
+
+        // Coarse occurrence_count upper bound (spec clause (c)): last possible
+        // occurrence day <= start + (count-1) * interval * period. Deliberately
+        // loose (monthly=31d, yearly=366d) — coarse bounds only reject the
+        // clearly-out-of-window; enumeration-level validation stays post-save.
+        var lastDayBound: Date? = rule.endDate.map { cal.startOfDay(for: $0) }
+        if let count = rule.occurrenceCount, count > 0 {
+            let periodDays: Int
+            switch rule.frequency {
+            case .daily: periodDays = 1
+            case .weekly: periodDays = 7
+            case .monthly: periodDays = 31
+            case .yearly: periodDays = 366
+            }
+            if let countBound = cal.date(byAdding: .day, value: (count - 1) * max(rule.interval, 1) * periodDays, to: firstDay) {
+                lastDayBound = lastDayBound.map { min($0, countBound) } ?? countBound
+            }
+        }
+
+        for date in excluded {
+            let day = cal.startOfDay(for: date)
+            if day == firstDay {
+                throw EventKitError.exclusionFirstOccurrence(date: Self.formatExclusionDay(date, timezone: timezone))
+            }
+            if day < firstDay || (lastDayBound.map { day > $0 } ?? false) {
+                throw EventKitError.exclusionOutOfWindow(date: Self.formatExclusionDay(date, timezone: timezone))
+            }
+        }
     }
 
     /// #182 — day formatter for exclusion error messages and response payloads
@@ -1782,11 +1829,16 @@ actor EventKitManager: EventKitManaging {
     func executeUndo(_ operation: UndoOperation) async throws -> String {
         switch operation {
         case .createEvent(let id, let title):
-            // Undo create = delete
-            if let event = eventStore.event(withIdentifier: id) {
-                try eventStore.remove(event, span: .thisEvent)
-                markNeedsRefresh()
+            // Undo create = delete. #182 verify: the record is already popped, so a
+            // missing event MUST surface as an error — silently returning "Undone"
+            // reports success for a no-op.
+            guard let event = eventStore.event(withIdentifier: id) else {
+                throw EventKitError.eventNotFound(identifier: id.isEmpty ? "(created event had no identifier)" : id)
             }
+            // #182 verify: a recurring master needs .futureEvents to remove the whole
+            // series (mirrors deleteEventSeries); .thisEvent strands N-1 occurrences.
+            try eventStore.remove(event, span: event.hasRecurrenceRules ? .futureEvents : .thisEvent)
+            markNeedsRefresh()
             return "Undone: removed created event '\(EventKitErrorSanitizer.sanitizeForInterpolation(title))'"
 
         case .deleteEvent(let snapshot):
@@ -2065,6 +2117,14 @@ enum EventKitError: LocalizedError {
     case exclusionNoOccurrence(date: String)
     /// #182 pass 2 — removing an occurrence failed. The series was rolled back.
     case exclusionRemoveFailed(date: String)
+    /// #182 verify fix — excluding the series' first occurrence is rejected pre-save:
+    /// removing the DTSTART occurrence invalidates the rollback anchor, breaks the
+    /// duplicate-retry heuristic (start ±30s finds no live event), and leaves the
+    /// returned/undo ID pointing at a removed occurrence.
+    case exclusionFirstOccurrence(date: String)
+    /// #182 verify fix — the exclusion set would remove every occurrence of a
+    /// count-bounded series, leaving a "created" response for an empty series.
+    case exclusionRemovesAllOccurrences(excludedCount: Int, occurrenceCount: Int)
     /// #182 — the compensating delete itself failed: the series still exists with
     /// `appliedDates` exclusions applied. Partial state MUST be reported, never silent.
     case exclusionRollbackFailed(masterId: String, appliedDates: [String])
@@ -2143,6 +2203,10 @@ enum EventKitError: LocalizedError {
             return "excluded_occurrence_dates: no occurrence exists on \(date). The new series was rolled back — no occurrences were removed and no event remains."
         case .exclusionRemoveFailed(let date):
             return "excluded_occurrence_dates: removing the occurrence on \(date) failed. The new series was rolled back — no event remains."
+        case .exclusionFirstOccurrence(let date):
+            return "excluded_occurrence_dates: \(date) is the first occurrence of the series. Excluding the first occurrence is not supported — adjust start_time so the series begins at the first wanted occurrence instead. Nothing was created."
+        case .exclusionRemovesAllOccurrences(let excludedCount, let occurrenceCount):
+            return "excluded_occurrence_dates: excluding \(excludedCount) date(s) from a series capped at \(occurrenceCount) occurrence(s) would remove every occurrence. Nothing was created — reduce the exclusions or don't create the series."
         case .exclusionRollbackFailed(let masterId, let appliedDates):
             return "excluded_occurrence_dates: exclusion failed AND the compensating delete failed. The series (event ID \(masterId)) still exists with these exclusions already applied: [\(appliedDates.joined(separator: ", "))]. Delete it manually with delete_event span:\"all\" or retry."
         case .exclusionConflict(let existingId, let date):

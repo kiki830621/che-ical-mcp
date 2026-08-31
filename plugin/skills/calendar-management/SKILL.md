@@ -105,7 +105,7 @@ create_event({
 ```
 
 - Same date grammar as `occurrence_date`; date-only values are interpreted in the event timezone. Max 100, duplicates rejected.
-- Applied atomically: if any exclusion fails, the entire new series is rolled back — no partial state. One `undo` removes the whole series including exclusions.
+- Applied with best-effort all-or-nothing semantics: if any exclusion fails, the entire new series is removed via compensating delete (rollback failure is reported, never silent). The first occurrence cannot be excluded. One `undo` removes the whole series including exclusions.
 - Response includes `excluded_occurrence_dates` (normalized `yyyy-MM-dd`) + `exclusion_count`. Also available per-item in `create_events_batch` (reported per-item).
 - `update_event` and `create_reminder` reject this field — it is creation-time only.
 

@@ -36,3 +36,9 @@
 
 - **4.2 seam 形式**：以 closure-based `ExclusionExecutor`（`Sources/CheICalMCP/EventKit/ExclusionExecutor.swift`，generic over occurrence type）取代原規劃的 `RecurrenceExclusionSource` protocol + init 注入。理由：two-pass 排序／rollback 語意是需要隔離測試的核心，closure seam 以更小 API 面達成同等隔離（`ExclusionExecutorTests` 6 case 全綠）；protocol + init 參數對本 feature 無額外測試價值。CLAUDE.md 的 `<Domain>Source` 慣例適用於「handler 需要 fake 整個 manager 面」的場景，本 feature 的 handler 邏輯（response 欄位組裝）薄到 dispatch-path 測試即可覆蓋。
 - **4.3 覆蓋範圍**：two-pass 排序＋rollback 由 `ExclusionExecutorTests` pin；validation／caller-gating 由 `RecurrenceExclusionValidationTests`（dispatch 路徑，pre-EventKit）pin。「成功路徑 envelope 欄位」（excluded_occurrence_dates/exclusion_count 出現在回應）需真 EventKit，未在 CI 覆蓋 — 留待 verify phase 檢視是否可接受。
+
+## Verify round 1 更正（2026-08-31，finding #10 — 勾選紀錄與交付不符）
+
+- **1.3**：原勾選時 `occurrence_count` 窗口粗界**未實作**（只查 end_date）— verify round 1 修復後現已實作（coarse bound + 全排除拒絕）。
+- **4.1**：時區 normalize／窗口測試原**未交付** — round 1 補上（型別錯誤、first-occurrence、count 窗口、全排除、top-level 拒絕）。
+- **4.3**：`RecurrenceExclusionHandlerTests.swift` 從未存在；handler 級 EventKit 行為（undo span、duplicate skipped/conflict、成功 envelope）**CI 不可測**，依 closure-seam ASSUMPTION 由 dispatch 級測試＋文件化取代。undo span 修正（.futureEvents + 假 success 消除）同樣 CI 不可測，列 residue。
