@@ -671,26 +671,27 @@ actor EventKitManager: EventKitManaging {
         if let tz = timezone { cal.timeZone = tz }
         let firstDay = cal.startOfDay(for: startDate)
 
-        // Verify finding #6 — the whole series must not be emptied out.
-        if let count = rule.occurrenceCount, count > 0, excluded.count >= count {
-            throw EventKitError.exclusionRemovesAllOccurrences(excludedCount: excluded.count, occurrenceCount: count)
-        }
-
-        // Coarse occurrence_count upper bound (spec clause (c)): last possible
-        // occurrence day <= start + (count-1) * interval * period. Deliberately
-        // loose (monthly=31d, yearly=366d) — coarse bounds only reject the
-        // clearly-out-of-window; enumeration-level validation stays post-save.
+        // Coarse occurrence_count upper bound (spec clause (c)) — DAILY/WEEKLY ONLY.
+        // For those the stride is exact (interval days / interval*7 days; days_of_week
+        // only shortens the span), so (count-1)*interval*period is a strict loose
+        // bound that never false-rejects. Monthly/yearly have no cheap loose bound
+        // (days_of_month=[31] skips months; Feb-29 yearly skips years — R2 finding),
+        // so the count bound is NOT applied there; end_date still is. Overflow-safe:
+        // an overflowing product simply drops the bound (huge counts bound nothing).
         var lastDayBound: Date? = rule.endDate.map { cal.startOfDay(for: $0) }
         if let count = rule.occurrenceCount, count > 0 {
-            let periodDays: Int
+            let periodDays: Int?
             switch rule.frequency {
             case .daily: periodDays = 1
             case .weekly: periodDays = 7
-            case .monthly: periodDays = 31
-            case .yearly: periodDays = 366
+            case .monthly, .yearly: periodDays = nil
             }
-            if let countBound = cal.date(byAdding: .day, value: (count - 1) * max(rule.interval, 1) * periodDays, to: firstDay) {
-                lastDayBound = lastDayBound.map { min($0, countBound) } ?? countBound
+            if let period = periodDays {
+                let (step, o1) = (count - 1).multipliedReportingOverflow(by: max(rule.interval, 1))
+                let (spanDays, o2) = o1 ? (0, true) : step.multipliedReportingOverflow(by: period)
+                if !o1, !o2, let countBound = cal.date(byAdding: .day, value: spanDays, to: firstDay) {
+                    lastDayBound = lastDayBound.map { min($0, countBound) } ?? countBound
+                }
             }
         }
 
@@ -702,6 +703,14 @@ actor EventKitManager: EventKitManaging {
             if day < firstDay || (lastDayBound.map { day > $0 } ?? false) {
                 throw EventKitError.exclusionOutOfWindow(date: Self.formatExclusionDay(date, timezone: timezone))
             }
+        }
+
+        // Verify finding #6 — the whole series must not be emptied out. Checked AFTER
+        // the per-date window pass (R2 note 3): only dates proven in-window can
+        // truthfully claim to remove every occurrence; an out-of-window date gets the
+        // more accurate out-of-window / first-occurrence error above instead.
+        if let count = rule.occurrenceCount, count > 0, excluded.count >= count {
+            throw EventKitError.exclusionRemovesAllOccurrences(excludedCount: excluded.count, occurrenceCount: count)
         }
     }
 

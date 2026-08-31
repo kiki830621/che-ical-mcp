@@ -35,11 +35,13 @@ final class ExclusionWindowValidationTests: XCTestCase {
     }
 
     /// Finding #6 — exclusion count >= occurrence_count empties the series.
+    /// Monthly: no count-derived day bound applies (R2 — no cheap loose bound),
+    /// so both dates pass the window pass and the removes-all check is reachable.
     func testExclusionSetCoveringWholeSeriesRejected() {
         XCTAssertThrowsError(try EventKitManager.validateExclusionWindow(
-            excluded: [date("2026-09-02T00:00:00"), date("2026-09-03T00:00:00")],
+            excluded: [date("2026-10-01T00:00:00"), date("2026-11-01T00:00:00")],
             startDate: date("2026-09-01T09:00:00"),
-            rule: rule(count: 2),
+            rule: rule(count: 2, frequency: .monthly),
             timezone: tz
         )) { error in
             guard case EventKitError.exclusionRemovesAllOccurrences(let e, let c) = error else {
@@ -47,6 +49,33 @@ final class ExclusionWindowValidationTests: XCTestCase {
             }
             XCTAssertEqual(e, 2); XCTAssertEqual(c, 2)
         }
+    }
+
+    /// R2 ordering — an out-of-window date is reported as out-of-window, never as
+    /// removes-all (daily count bound: window pass rejects before the count check).
+    func testOutOfWindowWinsOverRemovesAll() {
+        XCTAssertThrowsError(try EventKitManager.validateExclusionWindow(
+            excluded: [date("2026-09-02T00:00:00"), date("2026-09-03T00:00:00")],
+            startDate: date("2026-09-01T09:00:00"),
+            rule: rule(count: 2),
+            timezone: tz
+        )) { error in
+            guard case EventKitError.exclusionOutOfWindow(let d) = error else {
+                return XCTFail("expected .exclusionOutOfWindow, got \(error)")
+            }
+            XCTAssertEqual(d, "2026-09-03")
+        }
+    }
+
+    /// R2 — monthly gets NO count-derived bound (days_of_month can skip months), so a
+    /// far-future date within no end_date passes the window pass.
+    func testMonthlyCountImposesNoDayBound() throws {
+        try EventKitManager.validateExclusionWindow(
+            excluded: [date("2027-01-31T00:00:00")],
+            startDate: date("2026-01-31T09:00:00"),
+            rule: rule(count: 5, frequency: .monthly),
+            timezone: tz
+        )
     }
 
     /// Finding #6 — a date past the occurrence_count-derived bound is rejected pre-save.
