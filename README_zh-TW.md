@@ -467,6 +467,8 @@ macOS TCC（透明度、同意與控制）的隱私權限是**依應用程式**�
 
 | 版本 | 變更 |
 |------|------|
+| v1.16.0 | **週期排除＋undo 完整性＋archive-event skill**（#182/#185/#180）：create_event/batch 支援 `excluded_occurrence_dates`（two-pass 建立後移除、補償刪除、第一場不可排除）；batch/series 刪除現在記 undo entry（單一 `.batch` 單元）；undo 週期事件建立現在移除整個系列；新 `archive-event` skill — 來源歸檔含更正追蹤與 `.claude/.ical/` 專案設定。514 tests。 |
+| v1.15.0 | **Startup banner 偵測「versioned Claude Code host ＋ 未授權 EventKit」組合**（#175）：banner 解釋 path 旋轉並指向可操作修法；此訊號觸發時抑制矛盾的 `--setup` 建議行。另含 #173 parent-chain 診斷 polish。 |
 | v1.14.0 | **Claude Desktop 工具注入 drop 修復**（#166）：`mcpb/manifest.json` `display_name` 裡一個字面 `&` 讓 Desktop 1.18286.0 從每個對話 silent-drop 整台 29-tool server（Claude Code 不受影響）；改 `&` → `and`，以失敗實機單一變數介入證實 + `ManifestParityTests` regression guard。並把 `serverInfo.name` 對齊 kebab manifest id（hygiene；已實證駁斥為主因）。**#154 姊妹批次**：csreq-mismatch TCC drift 訊號（#155，`SecCodeCheckValidity` 自我檢查 silent-denial class）、`.mcpb` 拒絕訊息不再對已 `.denied` 情況死路指向 `--setup`（#158）、macOS badge 13.0 → 14.0（#157）、swift-nio 2.96 → 2.101（#159）。454 tests。 |
 | v1.13.0 | **SwiftUI SetupWindow**（#164）：互動式 `--setup` 在 #163 前景 `NSApplication` 內呈現即時狀態視窗（各實體 Grant 按鈕 + 解析出的 binary 路徑）。**Desktop 行事曆被拒修復**（#165）：`isNonInteractive` 對 GUI-app spawn 的 server 誤判 `TERM == nil` → 在 `requestFullAccess` 前 fast-fail，導致首次授權對話框永不出現；改用 `CGSession` GUI-session 訊號。429 tests。 |
 | v1.12.0 | **前景 `--setup`**（#163）：互動式 `--setup` 現在跑在前景 `NSApplication` 內，EventKit 的行事曆 TCC modal 才會真的彈出（先前從裸 CLI async context silent denied）。拒絕訊息 + 啟動 banner 顯示解析出的 binary 路徑 + 可複製的 `"<path>" --setup` 命令（給埋在 `.mcpb` 裡的 binary）。 |
