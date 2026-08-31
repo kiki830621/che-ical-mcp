@@ -204,7 +204,7 @@ extension RecurrenceExclusionValidationTests {
             ]
         )
         XCTAssertEqual(result.isError, true)
-        XCTAssertTrue(errorText(result).contains("recurrence"),
+        XCTAssertTrue(errorText(result).contains("must be an object"),
                       "got: \(errorText(result))")
     }
 
@@ -219,7 +219,8 @@ extension RecurrenceExclusionValidationTests {
             ]
         )
         XCTAssertEqual(result.isError, true)
-        XCTAssertTrue(errorText(result).contains("recurrence"))
+        XCTAssertTrue(errorText(result).contains("must be an object"),
+                      "got: \(errorText(result))")
     }
 
     /// #184 — absent recurrence keeps returning nil (no behavior change for the
@@ -237,8 +238,10 @@ extension RecurrenceExclusionValidationTests {
             ]
         )
         // CI has no EventKit access — the call fails at the access gate, NOT at
-        // parseRecurrenceRule. Any parse-level "recurrence" error here = regression.
-        XCTAssertFalse(errorText(result).contains("recurrence.frequency"),
+        // parseRecurrenceRule. ANY recurrence-related error here = regression
+        // (R2 assertion hardening: "recurrence.frequency" alone would still pass
+        // if the new must-be-an-object error misfired on the absent path).
+        XCTAssertFalse(errorText(result).contains("recurrence"),
                        "absent recurrence must not enter the parser, got: \(errorText(result))")
     }
 }
