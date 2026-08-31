@@ -1461,16 +1461,30 @@ class CheICalMCPServer {
         guard let record = await CalendarUndoManager.shared.popUndo() else {
             return try actionResult(["action": "undo", "success": false, "message": "Nothing to undo"])
         }
-        let message = try await eventKitManager.executeUndo(record.operation)
-        return try actionResult(["action": "undo", "success": true, "message": message])
+        do {
+            let message = try await eventKitManager.executeUndo(record.operation)
+            return try actionResult(["action": "undo", "success": true, "message": message])
+        } catch {
+            // #191 — a failed undo must not consume the entry: put it back so the
+            // user can fix the environment and retry (previously the record was
+            // silently lost and a retry undid the WRONG, older operation).
+            await CalendarUndoManager.shared.restoreFailedUndo(record)
+            throw error
+        }
     }
 
     private func handleRedo() async throws -> String {
         guard let record = await CalendarUndoManager.shared.popRedo() else {
             return try actionResult(["action": "redo", "success": false, "message": "Nothing to redo"])
         }
-        let message = try await eventKitManager.executeRedo(record.operation)
-        return try actionResult(["action": "redo", "success": true, "message": message])
+        do {
+            let message = try await eventKitManager.executeRedo(record.operation)
+            return try actionResult(["action": "redo", "success": true, "message": message])
+        } catch {
+            // #191 — symmetric restore for redo.
+            await CalendarUndoManager.shared.restoreFailedRedo(record)
+            throw error
+        }
     }
 
     private func handleUndoHistory(arguments: [String: Value]) async throws -> String {

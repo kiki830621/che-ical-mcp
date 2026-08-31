@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**#191 — undo of a recurring-series deletion no longer fails with 1010, and a failed undo no longer consumes the entry.**
+
+- **Fixed** — `EventSnapshot` stored the original event's `EKRecurrenceRule` objects by reference; after the series was deleted the references went stale, and re-attaching them during undo made the restore save fail (EKCADErrorDomain 1010, #186 on-device). Rules are now captured as value snapshots (`RecurrenceRuleSnapshot`) and rebuilt as fresh objects on restore (Refs #191).
+- **Fixed** — `undo`/`redo` popped the record BEFORE executing it: a failed execution silently consumed the entry, so a retry undid the wrong, older operation. A failed undo/redo now restores the record to its stack so the user can fix the environment and retry.
+
 **#184 — a non-object `recurrence` value is now rejected instead of silently dropped.**
 
 - **Fixed** — `"recurrence": "daily"` (string instead of object) used to be silently ignored across all four recurrence-parsing tools, creating a NON-recurring event while the response looked successful. Present-but-wrong-type now throws an explicit error with the correct shape (#101 F2 discipline; closes the last same-family gap after v1.16.0 fixed `end_date` / `occurrence_count` / `excluded_occurrence_dates`) (Refs #184).
