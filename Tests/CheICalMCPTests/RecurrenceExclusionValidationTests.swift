@@ -184,3 +184,61 @@ extension RecurrenceExclusionValidationTests {
         XCTAssertTrue(errorText(result).contains("occurrence_count"))
     }
 }
+
+// MARK: - #184: non-object recurrence must throw, not silently drop
+
+extension RecurrenceExclusionValidationTests {
+
+    /// #184 — a string-typed recurrence used to be silently ignored (event created,
+    /// not recurring). Present-but-wrong-type must throw (#101 F2).
+    func testStringRecurrenceRejectedOnCreateEvent() async throws {
+        let server = try await CheICalMCPServer()
+        let result = await server.handleToolCallForTesting(
+            name: "create_event",
+            arguments: [
+                "title": .string("t"),
+                "start_time": .string("2026-09-01T09:00:00"),
+                "end_time": .string("2026-09-01T10:00:00"),
+                "calendar_name": .string("Work"),
+                "recurrence": .string("daily")
+            ]
+        )
+        XCTAssertEqual(result.isError, true)
+        XCTAssertTrue(errorText(result).contains("recurrence"),
+                      "got: \(errorText(result))")
+    }
+
+    /// #184 — same guard reaches update_event through the shared parser.
+    func testStringRecurrenceRejectedOnUpdateEvent() async throws {
+        let server = try await CheICalMCPServer()
+        let result = await server.handleToolCallForTesting(
+            name: "update_event",
+            arguments: [
+                "event_id": .string("x"),
+                "recurrence": .string("weekly")
+            ]
+        )
+        XCTAssertEqual(result.isError, true)
+        XCTAssertTrue(errorText(result).contains("recurrence"))
+    }
+
+    /// #184 — absent recurrence keeps returning nil (no behavior change for the
+    /// overwhelmingly common non-recurring path). Reaching the EventKit access
+    /// gate (not a parse error) proves the parser passed.
+    func testAbsentRecurrenceStillAccepted() async throws {
+        let server = try await CheICalMCPServer()
+        let result = await server.handleToolCallForTesting(
+            name: "create_event",
+            arguments: [
+                "title": .string("t"),
+                "start_time": .string("2026-09-01T09:00:00"),
+                "end_time": .string("2026-09-01T10:00:00"),
+                "calendar_name": .string("Work")
+            ]
+        )
+        // CI has no EventKit access — the call fails at the access gate, NOT at
+        // parseRecurrenceRule. Any parse-level "recurrence" error here = regression.
+        XCTAssertFalse(errorText(result).contains("recurrence.frequency"),
+                       "absent recurrence must not enter the parser, got: \(errorText(result))")
+    }
+}

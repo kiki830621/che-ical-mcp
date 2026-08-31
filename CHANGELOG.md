@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+**#184 — a non-object `recurrence` value is now rejected instead of silently dropped.**
+
+- **Fixed** — `"recurrence": "daily"` (string instead of object) used to be silently ignored across all four recurrence-parsing tools, creating a NON-recurring event while the response looked successful. Present-but-wrong-type now throws an explicit error with the correct shape (#101 F2 discipline; closes the last same-family gap after v1.16.0 fixed `end_date` / `occurrence_count` / `excluded_occurrence_dates`) (Refs #184).
+
 ## [1.16.0] - 2026-08-31
 
 **#180 — new `archive-event` plugin skill.**
