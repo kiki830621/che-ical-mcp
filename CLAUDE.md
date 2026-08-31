@@ -59,6 +59,8 @@ When a handler needs a test fake, **introduce a new narrow `*Source` protocol sc
 
 This convention is **per-handler doc**, not a refactor: existing 30+ handlers continue to use `eventKitManager` directly — no migration debt. The seam appears only when a handler graduates into the test surface.
 
+**Closure-seam variant（#182）**：當要隔離測試的是**純序列邏輯**（而非 handler 的 sanitize→dispatch→envelope 面）時，可用 closure-based executor 取代 `*Source` protocol — 例：`ExclusionExecutor`（`Sources/CheICalMCP/EventKit/ExclusionExecutor.swift`），generic over occurrence type、以 `resolve`/`remove`/`rollback` 三個 closure 注入，`ExclusionExecutorTests` 以 stub closures pin two-pass 排序與 rollback 語意，零 EventKit 依賴。判準：protocol seam 給「handler 需要 fake 一組 manager 方法」；closure seam 給「manager 內部有一段可抽出的純協調邏輯」。兩者都不得擴 `EventKitManaging`。
+
 ## Startup Banner CLI Skip List (#122 + #130)
 
 The TCC drift detector startup banner (#122) intentionally **does NOT** run for these CLI side-channels: `--version`, `--help`, `--setup`, `--print-tcc-path`, `--self-update`, `--cli`. All of them exit before reaching the MCP server default branch where `emitStartupBanner()` lives.
