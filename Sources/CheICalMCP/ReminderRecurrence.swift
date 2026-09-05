@@ -116,6 +116,23 @@ struct ReminderDueValue: Equatable, Sendable {
               wall.isLeapMonth == nil || actual.isLeapMonth == wall.isLeapMonth else { return nil }
         // A repeated wall time cannot identify one absolute occurrence. Ask for
         // both matching policies instead of accepting Foundation's default fold.
+        // Foundation's first/last policies can agree incorrectly for non-hour
+        // folds (for example Lord Howe). Verify alternate nearby UTC offsets by
+        // round-tripping the same wall components, without assuming a one-hour shift.
+        let currentOffset = calendar.timeZone.secondsFromGMT(for: candidate)
+        let nearbyOffsets = Set([-172800.0, 172800.0].map {
+            calendar.timeZone.secondsFromGMT(for: candidate.addingTimeInterval($0))
+        })
+        for offset in nearbyOffsets where offset != currentOffset {
+            let alternate = candidate.addingTimeInterval(Double(currentOffset - offset))
+            let alternateWall = calendar.dateComponents(fields, from: alternate)
+            if alternateWall.era == actual.era, alternateWall.year == actual.year,
+               alternateWall.month == actual.month, alternateWall.day == actual.day,
+               alternateWall.hour == actual.hour, alternateWall.minute == actual.minute,
+               alternateWall.second == actual.second {
+                return nil
+            }
+        }
         let start = calendar.startOfDay(for: candidate).addingTimeInterval(-1)
         var clock = DateComponents()
         clock.hour = wall.hour; clock.minute = wall.minute; clock.second = wall.second
