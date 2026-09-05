@@ -30,10 +30,12 @@ protocol EventKitManaging: Sendable {
 }
 
 /// EventKit wrapper for Calendar and Reminders operations
-actor EventKitManager: EventKitManaging {
+actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionSource {
     private let eventStore: EKEventStore
     private let authorizationSource: AuthorizationStatusSource
     private var needsRefresh = false
+    // Per-call identity detects actor reentrancy while observing a completion.
+    private var completionObservations: [String: UUID] = [:]
 
     static let shared = EventKitManager()
 
@@ -1421,6 +1423,16 @@ actor EventKitManager: EventKitManaging {
         return reminders.map { $0.calendarItemIdentifier }
     }
 
+    func listReminderSnapshots(completed: Bool?, calendarName: String?, calendarSource: String?) async throws -> [ReminderReadSnapshot] {
+        let reminders = try await listReminders(completed: completed, calendarName: calendarName, calendarSource: calendarSource)
+        return reminders.map(ReminderReadSnapshot.init(from:))
+    }
+
+    func searchReminderSnapshots(keywords: [String], matchMode: String, calendarName: String?, calendarSource: String?, completed: Bool?) async throws -> [ReminderReadSnapshot] {
+        let reminders = try await searchReminders(keywords: keywords, matchMode: matchMode, calendarName: calendarName, calendarSource: calendarSource, completed: completed)
+        return reminders.map(ReminderReadSnapshot.init(from:))
+    }
+
     func listReminders(completed: Bool? = nil, calendarName: String? = nil, calendarSource: String? = nil) async throws -> [EKReminder] {
         try await ensureReminderAccess()
         refreshIfNeeded()
@@ -1596,6 +1608,7 @@ actor EventKitManager: EventKitManaging {
             throw EventKitError.reminderNotFound(identifier: identifier)
         }
 
+        completionObservations.removeValue(forKey: identifier)
         let oldSnapshot = ReminderSnapshot(from: reminder)
 
         if let t = title { reminder.title = t }
@@ -1674,26 +1687,60 @@ actor EventKitManager: EventKitManaging {
         return reminder
     }
 
-    func completeReminder(identifier: String, completed: Bool = true) async throws -> EKReminder {
+    func completeReminder(identifier: String, completed: Bool = true) async throws -> ReminderCompletionResult {
         try await ensureReminderAccess()
-
         guard let reminder = eventStore.calendarItem(withIdentifier: identifier) as? EKReminder else {
             throw EventKitError.reminderNotFound(identifier: identifier)
         }
-
-        let wasCompleted = reminder.isCompleted
-
+        let observationID = UUID()
+        completionObservations[identifier] = observationID
+        defer {
+            if completionObservations[identifier] == observationID {
+                completionObservations.removeValue(forKey: identifier)
+            }
+        }
+        let before = ReminderCompletionSnapshot(from: reminder)
         reminder.isCompleted = completed
-        if completed {
-            reminder.completionDate = Date()
+        reminder.completionDate = completed ? Date() : nil
+        try eventStore.save(reminder, commit: true)
+        // Capture legacy result and recurrence before the first suspension point.
+        let afterSave = ReminderCompletionSnapshot(from: reminder)
+        markNeedsRefresh()
+        if before.hasRecurrence {
+            await CalendarUndoManager.shared.record(.completeRecurringReminder(before: before, requestedCompleted: completed))
         } else {
-            reminder.completionDate = nil
+            await CalendarUndoManager.shared.record(.completeReminder(id: identifier, wasCompleted: before.isCompleted, title: afterSave.title))
         }
 
-        try eventStore.save(reminder, commit: true)
-        markNeedsRefresh()
-        await CalendarUndoManager.shared.record(.completeReminder(id: identifier, wasCompleted: wasCompleted, title: reminder.title ?? ""))
-        return reminder
+        var next = ReminderNextOccurrence.evaluate(before: before, observed: afterSave, requestedCompleted: completed)
+        if next.status == "unknown" {
+            // Reading a known ID is synchronous and does not wait for cloud refresh.
+            // Three observations, bounded by 300ms of cancellation-aware pacing.
+            // No title/external-ID heuristic: changed IDs remain explicitly unknown.
+            let delays: [UInt64] = [0, 100_000_000, 200_000_000]
+            for delay in delays {
+                if delay > 0 {
+                    do { try await Task.sleep(nanoseconds: delay) }
+                    catch {
+                        next = .unknown(reason: "observation_cancelled")
+                        break
+                    }
+                }
+                guard completionObservations[identifier] == observationID else {
+                    next = .unknown(reason: "concurrent_change")
+                    break
+                }
+                let observed = (eventStore.calendarItem(withIdentifier: identifier) as? EKReminder)
+                    .map(ReminderCompletionSnapshot.init(from:))
+                next = ReminderNextOccurrence.evaluate(before: before, observed: observed, requestedCompleted: completed)
+                if next.status == "confirmed" { break }
+            }
+        }
+        if next.status != "not_applicable", completionObservations[identifier] != observationID {
+            next = .unknown(reason: "concurrent_change")
+        }
+        return ReminderCompletionResult(before: before, afterSave: afterSave,
+                                        requestedCompleted: completed, nextOccurrence: next)
     }
 
     func deleteReminder(identifier: String) async throws {
@@ -1703,6 +1750,7 @@ actor EventKitManager: EventKitManaging {
             throw EventKitError.reminderNotFound(identifier: identifier)
         }
 
+        completionObservations.removeValue(forKey: identifier)
         let snapshot = ReminderSnapshot(from: reminder)
         try eventStore.remove(reminder, commit: true)
         markNeedsRefresh()
@@ -1805,6 +1853,7 @@ actor EventKitManager: EventKitManaging {
                     failures.append((id, "Reminder is no longer completed"))
                     continue
                 }
+                completionObservations.removeValue(forKey: id)
                 try eventStore.remove(reminder, commit: true)
                 successCount += 1
             } catch {
@@ -1959,6 +2008,7 @@ actor EventKitManager: EventKitManaging {
                 }
             }
             if let reminder = reminders.first(where: { $0.calendarItemIdentifier == id }) {
+                completionObservations.removeValue(forKey: id)
                 try eventStore.remove(reminder, commit: true)
                 markNeedsRefresh()
             }
@@ -1985,6 +2035,7 @@ actor EventKitManager: EventKitManaging {
             guard let reminder = reminders.first(where: { $0.calendarItemIdentifier == id }) else {
                 throw EventKitError.reminderNotFound(identifier: id)
             }
+            completionObservations.removeValue(forKey: id)
             applyReminderSnapshot(oldSnapshot, to: reminder)
             try eventStore.save(reminder, commit: true)
             markNeedsRefresh()
@@ -2001,10 +2052,27 @@ actor EventKitManager: EventKitManaging {
             guard let reminder = reminders.first(where: { $0.calendarItemIdentifier == id }) else {
                 throw EventKitError.reminderNotFound(identifier: id)
             }
+            completionObservations.removeValue(forKey: id)
             reminder.isCompleted = wasCompleted
+            reminder.completionDate = wasCompleted ? Date() : nil
             try eventStore.save(reminder, commit: true)
             markNeedsRefresh()
             return "Undone: set reminder '\(EventKitErrorSanitizer.sanitizeForInterpolation(title))' completion to \(wasCompleted)"
+
+        case .completeRecurringReminder(let before, _):
+            try await ensureReminderAccess()
+            // The known ID can now resolve to the next occurrence. Never reopen
+            // it unless the immutable due/rule identity still matches.
+            guard let reminder = eventStore.calendarItem(withIdentifier: before.id) as? EKReminder,
+                  before.matchesOccurrence(ReminderCompletionSnapshot(from: reminder)) else {
+                throw ToolError.invalidParameter("Cannot undo recurring reminder completion: the original occurrence can no longer be identified safely. Refresh reminders and act on the intended occurrence explicitly.")
+            }
+            completionObservations.removeValue(forKey: before.id)
+            reminder.isCompleted = before.isCompleted
+            reminder.completionDate = before.isCompleted ? Date() : nil
+            try eventStore.save(reminder, commit: true)
+            markNeedsRefresh()
+            return "Undone: set recurring reminder '\(EventKitErrorSanitizer.sanitizeForInterpolation(before.title))' completion to \(before.isCompleted)"
 
         case .batch(let ops):
             var results: [String] = []
@@ -2051,10 +2119,25 @@ actor EventKitManager: EventKitManaging {
             guard let reminder = reminders.first(where: { $0.calendarItemIdentifier == id }) else {
                 throw EventKitError.reminderNotFound(identifier: id)
             }
+            completionObservations.removeValue(forKey: id)
             reminder.isCompleted = !wasCompleted
+            reminder.completionDate = !wasCompleted ? Date() : nil
             try eventStore.save(reminder, commit: true)
             markNeedsRefresh()
             return "Redone: set reminder '\(EventKitErrorSanitizer.sanitizeForInterpolation(title))' completion to \(!wasCompleted)"
+
+        case .completeRecurringReminder(let before, let requestedCompleted):
+            try await ensureReminderAccess()
+            guard let reminder = eventStore.calendarItem(withIdentifier: before.id) as? EKReminder,
+                  before.matchesOccurrence(ReminderCompletionSnapshot(from: reminder)) else {
+                throw ToolError.invalidParameter("Cannot redo recurring reminder completion: the original occurrence can no longer be identified safely. Refresh reminders and act on the intended occurrence explicitly.")
+            }
+            completionObservations.removeValue(forKey: before.id)
+            reminder.isCompleted = requestedCompleted
+            reminder.completionDate = requestedCompleted ? Date() : nil
+            try eventStore.save(reminder, commit: true)
+            markNeedsRefresh()
+            return "Redone: set recurring reminder '\(EventKitErrorSanitizer.sanitizeForInterpolation(before.title))' completion to \(requestedCompleted)"
 
         case .batch(let ops):
             var results: [String] = []

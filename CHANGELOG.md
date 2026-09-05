@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- **Added** — Reminder list/search expose recurrence presence, full public rule values and precision-aware due dates (#194).
+- **Fixed** — Completion results distinguish a successful write from a recurring item's next incomplete state; return an observed successor or explicit uncertainty. Reopening is identified in the new operation object, while legacy fields remain compatible.
+- **Fixed** — Recurring completion undo/redo rejects an occurrence whose identity has changed; non-boolean completion input is rejected before mutation.
+
 ## [1.16.1] - 2026-08-31
 
 **#191 — undo of a recurring-series deletion no longer fails with 1010, and a failed undo no longer consumes the entry.**
