@@ -466,7 +466,7 @@ class CheICalMCPServer {
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
-                        "completed": .object(["type": .string("boolean"), "description": .string("Legacy filter: true=completed, false=incomplete, omit=all. Prefer using 'filter' parameter instead.")]),
+                        "completed": .object(["type": .string("boolean"), "description": .string("Legacy filter: true=completed, false=incomplete, omit=all. Must be a JSON boolean; strings and numbers are rejected. Prefer using 'filter' parameter instead.")]),
                         "filter": .object([
                             "type": .string("string"),
                             "enum": .array([.string("all"), .string("incomplete"), .string("completed"), .string("overdue")]),
@@ -617,7 +617,7 @@ class CheICalMCPServer {
                     "type": .string("object"),
                     "properties": .object([
                         "reminder_id": .object(["type": .string("string"), "description": .string("The reminder identifier")]),
-                        "completed": .object(["type": .string("boolean"), "description": .string("true=completed, false=incomplete")])
+                        "completed": .object(["type": .string("boolean"), "description": .string("true=completed, false=incomplete (default true). Must be a JSON boolean; strings and numbers are rejected before any write.")])
                     ]),
                     "required": .array([.string("reminder_id")])
                 ]),
@@ -655,7 +655,7 @@ class CheICalMCPServer {
                         "tag": .object(["type": .string("string"), "description": .string("Filter by tag (without # prefix). Example: \"grocery\"")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Optional reminder list name to filter by")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")]),
-                        "completed": .object(["type": .string("boolean"), "description": .string("Filter: true=completed, false=incomplete, omit=all")]),
+                        "completed": .object(["type": .string("boolean"), "description": .string("Filter: true=completed, false=incomplete, omit=all. Must be a JSON boolean; strings and numbers are rejected.")]),
                         "limit": .object([
                             "type": .string("integer"),
                             "description": .string("Maximum number of reminders to return")
@@ -1560,7 +1560,7 @@ class CheICalMCPServer {
             default: completed = nil  // "all"
             }
         } else {
-            completed = arguments["completed"]?.boolValue
+            completed = try InputValidation.requireOptionalBool(arguments, key: "completed")
         }
 
         var reminders = try await reminderReadSource.listReminderSnapshots(
@@ -1772,9 +1772,9 @@ class CheICalMCPServer {
         guard let reminderId = arguments["reminder_id"]?.stringValue else {
             throw ToolError.invalidParameter("reminder_id is required")
         }
-        // Legacy contract: a missing or non-boolean `completed` means complete.
-        // Rejecting non-boolean input is a breaking change tracked in PR #201.
-        let completed = arguments["completed"]?.boolValue ?? true
+        // BREAKING (see CHANGELOG): a non-boolean `completed` is rejected before
+        // any write. Omitted or JSON null still means complete.
+        let completed = try InputValidation.requireOptionalBool(arguments, key: "completed") ?? true
         let result = try await reminderCompletionSource.completeReminder(identifier: reminderId, completed: completed)
         return try actionResult(result.dictionary)
     }
@@ -1833,7 +1833,7 @@ class CheICalMCPServer {
         let calendarName = try ReminderCleanup.requireStringIfPresent(arguments, key: "calendar_name")
         let calendarSource = try ReminderCleanup.requireStringIfPresent(arguments, key: "calendar_source")
         try ReminderCleanup.rejectSourceWithoutName(name: calendarName, source: calendarSource)
-        let completed = arguments["completed"]?.boolValue
+        let completed = try InputValidation.requireOptionalBool(arguments, key: "completed")
         // #107 B1: add limit parameter to align search_reminders with search_events.
         // Uses requireOptionalLimit (cap=10000) — same defense-in-depth as search_events.
         let limit = try InputValidation.requireOptionalLimit(arguments)
