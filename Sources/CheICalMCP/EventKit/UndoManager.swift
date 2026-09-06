@@ -136,6 +136,7 @@ enum UndoOperation {
     case deleteReminder(snapshot: ReminderSnapshot)
     case updateReminder(id: String, oldSnapshot: ReminderSnapshot)
     case completeReminder(id: String, wasCompleted: Bool, title: String)
+    case completeRecurringReminder(before: ReminderCompletionSnapshot, requestedCompleted: Bool)
     case batch([UndoOperation])
 
     /// Human-readable description of this operation. **Surfaces verbatim
@@ -160,6 +161,9 @@ enum UndoOperation {
             return "Updated reminder: \(EventKitErrorSanitizer.sanitizeForInterpolation(old.title))"
         case .completeReminder(_, _, let title):
             return "Completed reminder: \(EventKitErrorSanitizer.sanitizeForInterpolation(title))"
+        case .completeRecurringReminder(let before, let requestedCompleted):
+            let action = requestedCompleted ? "Completed" : "Reopened"
+            return "\(action) recurring reminder: \(EventKitErrorSanitizer.sanitizeForInterpolation(before.title))"
         case .batch(let ops):
             return "Batch (\(ops.count) operations)"
         }
@@ -188,7 +192,8 @@ actor CalendarUndoManager {
     private var redoStack: [UndoRecord] = []
     private let maxStackSize = 50
 
-    private init() {}
+    /// Production code uses `shared`; other instances exist only for tests.
+    init() {}
 
     /// Record a mutation. Clears the redo stack.
     func record(_ operation: UndoOperation) {
@@ -222,6 +227,19 @@ actor CalendarUndoManager {
         redoStack.append(record)
     }
 
+    /// A record whose undo can never succeed (the target occurrence no longer
+    /// exists under that identifier) must not be put back: re-appending it
+    /// jams every older entry behind an always-failing head. Same call contract
+    /// as `restoreFailedUndo` — only immediately after the popUndo that threw.
+    func discardFailedUndo(_ record: UndoRecord) {
+        if !redoStack.isEmpty { redoStack.removeLast() }
+    }
+
+    /// Symmetric discard for a permanently failed executeRedo.
+    func discardFailedRedo(_ record: UndoRecord) {
+        if !undoStack.isEmpty { undoStack.removeLast() }
+    }
+
     func popRedo() -> UndoRecord? {
         guard let record = redoStack.popLast() else { return nil }
         undoStack.append(record)
@@ -239,4 +257,24 @@ actor CalendarUndoManager {
     var canRedo: Bool { !redoStack.isEmpty }
     var undoCount: Int { undoStack.count }
     var redoCount: Int { redoStack.count }
+}
+
+// MARK: - Undo failure classification
+
+/// Thrown by executeUndo/executeRedo when the recorded target can no longer be
+/// acted on and never will be (e.g. a recurring reminder's identifier now
+/// resolves to a later occurrence). Distinct from transient failures such as
+/// a revoked permission, which keep their history entry for a retry (#191).
+struct UnrecoverableUndoError: LocalizedError, Sendable {
+    let message: String
+    var errorDescription: String? { message }
+}
+
+enum UndoFailureDisposition: Equatable {
+    case restore   // transient: keep the entry so the user can fix and retry (#191)
+    case discard   // permanent: drop the entry so older operations stay reachable
+
+    static func of(_ error: Error) -> Self {
+        error is UnrecoverableUndoError ? .discard : .restore
+    }
 }

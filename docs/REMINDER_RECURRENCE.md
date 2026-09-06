@@ -50,7 +50,7 @@ The resolver observes the saved object exactly once, synchronously, before the h
 
 **An unknown next occurrence is not a failed completion. Do not repeat the write.** Only save failures use the MCP error path. Existing ID-only writes do not guarantee exactly-once behavior on client/transport retries; an ID may already refer to a later occurrence.
 
-Undo of a completion uses the existing single-reminder record: it reverts `is_completed` on whatever the ID resolves to now. After a confirmed rollover that is the **next** occurrence, so the undo is a no-op that still reports success, and a following redo would complete that successor. The identity-guarded undo that refuses and discards such entries is PR #200.
+Undo/redo of a recurring completion is identity-guarded: the record keeps the pre-write due/rules/list/source snapshot, and the operation runs only if the identifier still resolves to that same occurrence (completion state and title are not identity). Once the identifier has advanced to a later occurrence — on iCloud the finished occurrence is kept as a separate completed record — the undo fails with an explicit message and the history entry is **discarded**, so every earlier operation stays undoable; reopen the finished record explicitly instead. Transient failures (permission, store errors) still keep the entry for a retry (#191). Non-recurring undo is unchanged.
 
 The MCP response remains JSON in text content; this change does not migrate to MCP `structuredContent`. Clients rejecting unknown fields must update their decoders. Clients that read only the old `is_completed` field must migrate to `operation` to distinguish successful completion from successor state.
 
