@@ -191,6 +191,20 @@ enum InputValidation {
     /// caller intent — most likely an off-by-one bug) and caps the upper
     /// bound at 10000 (defense-in-depth against accidentally-massive
     /// responses). Absence still returns nil = no limit.
+    /// A boolean argument that may be omitted; JSON `null` counts as omitted.
+    /// Any other non-boolean value (string, number, …) is rejected. The old
+    /// `?.boolValue ?? default` shape silently turned `"false"` into the default,
+    /// which on `complete_reminder` meant completing a reminder the caller
+    /// asked to reopen.
+    static func requireOptionalBool(_ arguments: [String: Value], key: String) throws -> Bool? {
+        guard let value = arguments[key] else { return nil }
+        if case .null = value { return nil }
+        guard let bool = value.boolValue else {
+            throw ToolError.invalidParameter("\(key) must be a boolean (true or false)")
+        }
+        return bool
+    }
+
     static func requireOptionalLimit(_ arguments: [String: Value], cap: Int = 10000) throws -> Int? {
         guard let n = try requireOptionalInt(arguments, key: "limit") else { return nil }
         if n <= 0 {

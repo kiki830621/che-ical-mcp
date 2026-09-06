@@ -69,4 +69,29 @@ final class ReminderCompletionHandlerTests: XCTestCase {
         let observed = try XCTUnwrap(json["observed"] as? [String: Any])
         XCTAssertEqual((observed["due"] as? [String: Any])?["date"] as? String, "2026-09-06")
     }
+
+    func testNonBooleanCompletedIsRejectedBeforeWriting() async throws {
+        let fake = CompletionFake()
+        let server = try await CheICalMCPServer(reminderCompletionSource: fake)
+        for bad in [Value.string("false"), .string("true"), .int(0), .int(1), .double(1)] {
+            do {
+                _ = try await server.executeToolCall(name: "complete_reminder", arguments: ["reminder_id": .string("r"), "completed": bad])
+                XCTFail("must reject non-boolean completed: \(bad)")
+            } catch let error as ToolError {
+                XCTAssertTrue("\(error)".contains("completed must be a boolean"), "\(error)")
+            }
+        }
+        let calls = await fake.calls
+        XCTAssertEqual(calls, 0, "a rejected argument must never reach the store")
+    }
+
+    func testNullCompletedIsTreatedAsOmitted() async throws {
+        let fake = CompletionFake()
+        let server = try await CheICalMCPServer(reminderCompletionSource: fake)
+        let raw = try await server.executeToolCall(name: "complete_reminder", arguments: ["reminder_id": .string("r"), "completed": .null])
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any])
+        XCTAssertEqual((json["operation"] as? [String: Any])?["type"] as? String, "complete")
+        let calls = await fake.calls
+        XCTAssertEqual(calls, 1)
+    }
 }
