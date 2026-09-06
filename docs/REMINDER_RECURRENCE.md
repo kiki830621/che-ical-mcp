@@ -5,10 +5,10 @@
 | Field | Meaning |
 | --- | --- |
 | `has_recurrence` | Whether the observed reminder currently carries recurrence rules. This does not promise another occurrence exists. |
-| `recurrence_rules` | All public EventKit rules; `[]` for non-recurring items, `null` when a recurring item's rules are unavailable. |
-| `due` | `date`, `time`, `timezone`, `calendar_identifier`, `date_time`; null when no complete calendar date is available. |
+| `recurrence_rules` | All public EventKit rules; `[]` for non-recurring items, `null` when a recurring item's rules are unavailable or empty (never `[]` next to `has_recurrence: true`). |
+| `due` | `date`, `time`, `timezone`, `calendar_identifier`, `date_time`; null when no complete calendar date is available. `due.date` is the reminder's own calendar date; legacy `due_date` is the UTC instant and can name a different day. |
 
-Rule objects include `frequency`, `interval`, `calendar_identifier`, `first_day_of_week`, `days_of_week`, `days_of_week_details` (objects with `day` and `week_number`), `days_of_month`, `months_of_year`, `weeks_of_year`, `days_of_year`, `set_positions`, `end_date`, and `occurrence_count`. Unspecified selectors are null. `frequency_raw_value` is included for an unknown future frequency. Weekdays use 1=Sunday through 7=Saturday; a negative ordinal is preserved. `occurrence_count` is the rule's limit, not remaining occurrences. This read format is richer than the existing recurrence input format; it is not a promise of lossless write-back.
+Rule objects include `frequency`, `interval`, `calendar_identifier`, `first_day_of_week`, `days_of_week`, `days_of_week_details` (objects with `day` and `week_number`), `days_of_month`, `months_of_year`, `weeks_of_year`, `days_of_year`, `set_positions`, `end_date`, and `occurrence_count`. Unspecified selectors are null. `frequency_raw_value` (EventKit's raw enum value) is always included, so a future frequency that serializes as `"unknown"` stays distinguishable. Weekdays use 1=Sunday through 7=Saturday; a negative ordinal is preserved. `occurrence_count` is the rule's limit, not remaining occurrences. This read format is richer than the existing recurrence input format; it is not a promise of lossless write-back.
 
 `due.date_time` is an ISO 8601 UTC instant only for a valid, unambiguous date with explicit time and timezone. Date-only reminders retain the date and null time/instant. Floating reminders retain wall-clock values with null timezone/instant. DST gaps and folds do not invent an instant. Legacy `due_date`, `_local`, count, sorting and filtering behavior remain unchanged.
 
@@ -38,11 +38,11 @@ Read `operation.status`, not legacy `is_completed`, to determine whether the wri
 }
 ```
 
-The example is illustrative. `has_recurrence` and `operation.target` capture the item **before** mutation. `is_completed` and `title` retain the saved object's values. `completed=false` produces `operation.type="reopen"` and `next_occurrence.status="not_applicable"`; legacy `action="completed"` is intentionally preserved for existing clients. A non-boolean `completed` currently falls back to the legacy default (`true`); rejecting it is a breaking change tracked in a separate PR.
+The example is illustrative. `has_recurrence` and `operation.target` capture the item **before** mutation. `is_completed` and `title` retain the saved object's values. `completed=false` produces `operation.type="reopen"` and `next_occurrence.status="not_applicable"`; legacy `action="completed"` is intentionally preserved for existing clients. A non-boolean `completed` currently falls back to the legacy default (`true`); rejecting it is a breaking change tracked in PR #201. `observed` echoes the saved object as read right after save (`id`, `title`, `is_completed`, `has_recurrence`, `due`) regardless of `next_occurrence.status`.
 
 | Next status | Contract |
 | --- | --- |
-| `confirmed` | The same ID/list/source was observed as incomplete with unchanged known recurrence rules and a strictly later comparable due date. `reminder` contains the observed item, including `id` and `due`, and `message` reads `Next occurrence: <date or instant>`. |
+| `confirmed` | The same ID/list/source was observed as incomplete with unchanged known recurrence rules and a strictly later comparable due date. `reminder` contains the observed item, including `id` and `due`, and `message` reads `Next occurrence: <date> [<time> [<zone>]]` in the reminder's own wall clock, never a UTC instant. |
 | `unknown` | The ID changed/disappeared, rules/due cannot be compared, or the record has not advanced. `reminder` is null and `reason` explains why. |
 | `not_applicable` | Non-recurring item, reopening, or an already-completed target. `reminder` is null. |
 
@@ -50,7 +50,7 @@ The resolver observes the saved object exactly once, synchronously, before the h
 
 **An unknown next occurrence is not a failed completion. Do not repeat the write.** Only save failures use the MCP error path. Existing ID-only writes do not guarantee exactly-once behavior on client/transport retries; an ID may already refer to a later occurrence.
 
-Undo of a completion uses the existing single-reminder record: it reverts `is_completed` on whatever the ID resolves to now, which for an advanced recurring reminder is the next occurrence. An occurrence-identity-guarded undo for recurring completions is tracked in a separate PR.
+Undo of a completion uses the existing single-reminder record: it reverts `is_completed` on whatever the ID resolves to now. After a confirmed rollover that is the **next** occurrence, so the undo is a no-op that still reports success, and a following redo would complete that successor. The identity-guarded undo that refuses and discards such entries is PR #200.
 
 The MCP response remains JSON in text content; this change does not migrate to MCP `structuredContent`. Clients rejecting unknown fields must update their decoders. Clients that read only the old `is_completed` field must migrate to `operation` to distinguish successful completion from successor state.
 

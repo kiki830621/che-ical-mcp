@@ -98,13 +98,16 @@ struct ReminderCompletionResult: Sendable {
     let requestedCompleted: Bool
     let nextOccurrence: ReminderNextOccurrence
 
-    /// Instant when the due carries a timezone; otherwise the wall-clock date/time.
+    /// The reminder's own wall clock (plus its zone when it has one) — never a
+    /// UTC instant, which can name a different calendar day than the user set.
     private static func dueDescription(_ due: ReminderDueValue?) -> String? {
         guard let due else { return nil }
         let wire = due.dictionary
-        if let instant = wire["date_time"] as? String { return instant }
-        let parts = [wire["date"] as? String, wire["time"] as? String].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: " ")
+        guard let date = wire["date"] as? String else { return nil }
+        var parts = [date]
+        if let time = wire["time"] as? String { parts.append(time) }
+        if let zone = wire["timezone"] as? String { parts.append(zone) }
+        return parts.joined(separator: " ")
     }
 
     var dictionary: [String: Any] {
@@ -133,6 +136,13 @@ struct ReminderCompletionResult: Sendable {
             "title": afterSave.title,
             "is_completed": afterSave.isCompleted,
             "has_recurrence": before.hasRecurrence,
+            // The saved object as read right after save — present even when no
+            // successor can be confirmed, so `unknown` still says where the item sits.
+            "observed": [
+                "id": afterSave.id, "title": afterSave.title,
+                "is_completed": afterSave.isCompleted, "has_recurrence": afterSave.hasRecurrence,
+                "due": afterSave.due.map { $0.dictionary as Any } ?? NSNull()
+            ] as [String: Any],
             "operation": [
                 "type": requestedCompleted ? "complete" : "reopen",
                 "status": "succeeded",
@@ -150,6 +160,6 @@ struct ReminderCompletionResult: Sendable {
 }
 
 /// A feature-specific seam; do not widen the cleanup protocol for completion.
-protocol ReminderCompletionSource {
+protocol ReminderCompletionSource: Sendable {
     func completeReminder(identifier: String, completed: Bool) async throws -> ReminderCompletionResult
 }

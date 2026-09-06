@@ -162,7 +162,8 @@ struct ReminderDueValue: Equatable, Sendable {
 
 func reminderMetadata(hasRecurrence: Bool, rules: [ReminderRecurrenceRuleValue]?, due: ReminderDueValue?) -> [String: Any] {
     ["has_recurrence": hasRecurrence,
-     "recurrence_rules": hasRecurrence ? nullable(rules?.map(\.dictionary)) : [],
+     // Recurring: unavailable OR empty rules are both `null` (`[]` would read as non-recurring).
+     "recurrence_rules": hasRecurrence ? nullable(rules.flatMap { $0.isEmpty ? nil : $0.map(\.dictionary) }) : [],
      "due": nullable(due?.dictionary)]
 }
 

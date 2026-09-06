@@ -153,13 +153,34 @@ final class ReminderCompletionTests: XCTestCase {
         XCTAssertTrue(message.contains("2026-09-06"), message)
     }
 
-    func testConfirmedMessageUsesInstantWhenDueHasTimeZone() throws {
-        let before = snapshot(hour: 9, zone: "Asia/Taipei")
-        let after = snapshot(day: 6, hour: 9, zone: "Asia/Taipei")
+    func testConfirmedMessageRendersZonedDueInItsOwnTimeZone() throws {
+        // A UTC instant can name a different calendar day than the one the user
+        // set (07:00 Asia/Taipei is the previous day in UTC); the prose must use
+        // the reminder's own wall clock and zone.
+        let before = snapshot(hour: 7, zone: "Asia/Taipei")
+        let after = snapshot(day: 6, hour: 7, zone: "Asia/Taipei")
         let result = ReminderCompletionResult(before: before, afterSave: after,
             requestedCompleted: true, nextOccurrence: .evaluate(
                 before: before, observed: after, requestedCompleted: true))
         let message = try XCTUnwrap(result.dictionary["message"] as? String)
-        XCTAssertTrue(message.contains("2026-09-06T01:00:00Z"), message)
+        XCTAssertTrue(message.contains("2026-09-06 07:00:00 Asia/Taipei"), message)
+        XCTAssertFalse(message.contains("2026-09-05"), message)
+    }
+
+    func testUnknownResultStillReportsObservedSavedState() throws {
+        // The saved object is captured in full; `unknown` must not throw it away.
+        let before = snapshot()
+        let after = snapshot(completed: true)
+        let result = ReminderCompletionResult(before: before, afterSave: after,
+            requestedCompleted: true, nextOccurrence: .evaluate(
+                before: before, observed: after, requestedCompleted: true))
+        let dictionary = result.dictionary
+        XCTAssertEqual((dictionary["next_occurrence"] as? [String: Any])?["status"] as? String, "unknown")
+        let observed = try XCTUnwrap(dictionary["observed"] as? [String: Any])
+        XCTAssertEqual(observed["id"] as? String, "reminder")
+        XCTAssertEqual(observed["is_completed"] as? Bool, true)
+        XCTAssertEqual(observed["has_recurrence"] as? Bool, true)
+        XCTAssertEqual((observed["due"] as? [String: Any])?["date"] as? String, "2026-09-05")
+        XCTAssertTrue(JSONSerialization.isValidJSONObject(dictionary))
     }
 }

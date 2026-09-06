@@ -2,7 +2,7 @@ import EventKit
 import Foundation
 
 /// Only the list/search surface; deliberately separate from cleanup's protocol.
-protocol ReminderReadSource {
+protocol ReminderReadSource: Sendable {
     func listReminderSnapshots(completed: Bool?, calendarName: String?, calendarSource: String?) async throws -> [ReminderReadSnapshot]
     func searchReminderSnapshots(keywords: [String], matchMode: String, calendarName: String?, calendarSource: String?, completed: Bool?) async throws -> [ReminderReadSnapshot]
 }

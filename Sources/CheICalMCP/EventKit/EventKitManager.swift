@@ -1686,6 +1686,9 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
 
     func completeReminder(identifier: String, completed: Bool = true) async throws -> ReminderCompletionResult {
         try await ensureReminderAccess()
+        // Same refresh discipline as the read paths, so the pre-save snapshot the
+        // successor comparison is anchored on is not stale from an earlier mutation.
+        refreshIfNeeded()
         guard let reminder = eventStore.calendarItem(withIdentifier: identifier) as? EKReminder else {
             throw EventKitError.reminderNotFound(identifier: identifier)
         }
@@ -1693,12 +1696,12 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
         reminder.isCompleted = completed
         reminder.completionDate = completed ? Date() : nil
         try eventStore.save(reminder, commit: true)
-        // Observe exactly once, synchronously, before any suspension point. EventKit
-        // advances a recurring reminder in place during save (the symptom #194
-        // reports), so the same cached object already reflects the successor here.
-        // No polling and no refresh: a later read of the cached store could only
-        // reflect what another writer did, never more of what this save did, so it
-        // would misattribute concurrent edits as this call's successor.
+        // Observe exactly once, synchronously, before any suspension point. On
+        // iCloud (on-device probe, PR #195) save advances a recurring reminder in
+        // place, so this read already reflects the successor; a store that surfaces
+        // the successor later or under another identifier yields `unknown`, never a
+        // guess. No polling and no refresh here: a later read of the cached store
+        // cannot be attributed to this save rather than to another writer.
         let afterSave = ReminderCompletionSnapshot(from: reminder)
         let next = ReminderNextOccurrence.evaluate(before: before, observed: afterSave,
                                                    requestedCompleted: completed)

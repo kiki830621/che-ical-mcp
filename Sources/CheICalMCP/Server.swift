@@ -1763,7 +1763,7 @@ class CheICalMCPServer {
             throw ToolError.invalidParameter("reminder_id is required")
         }
         // Legacy contract: a missing or non-boolean `completed` means complete.
-        // Rejecting non-boolean input is a breaking change tracked separately.
+        // Rejecting non-boolean input is a breaking change tracked in PR #201.
         let completed = arguments["completed"]?.boolValue ?? true
         let result = try await reminderCompletionSource.completeReminder(identifier: reminderId, completed: completed)
         return try actionResult(result.dictionary)

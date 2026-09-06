@@ -119,4 +119,11 @@ final class ReminderRecurrenceTests: XCTestCase {
         XCTAssertEqual(json["frequency_raw_value"] as? Int, EKRecurrenceFrequency.weekly.rawValue)
         XCTAssertTrue(JSONSerialization.isValidJSONObject(json))
     }
+
+    func testRecurringItemWithEmptyRulesReportsNullRulesNotEmptyArray() {
+        // Docs: `[]` means non-recurring, `null` means recurring with unavailable rules.
+        // A recurring item whose rules array is empty must not look non-recurring.
+        XCTAssertTrue(reminderMetadata(hasRecurrence: true, rules: [], due: nil)["recurrence_rules"] is NSNull)
+        XCTAssertEqual((reminderMetadata(hasRecurrence: false, rules: [], due: nil)["recurrence_rules"] as? [Any])?.count, 0)
+    }
 }
