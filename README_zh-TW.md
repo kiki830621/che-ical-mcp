@@ -97,7 +97,7 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 | `list_reminder_tags` | 列出所有已使用的標籤及使用次數（v1.3.0） |
 
 
-**重複提醒（#194）：** list/search 新增 `has_recurrence`、完整公開 `recurrence_rules` 與保留日期精度的 `due`。完成回傳新增 `operation`（寫入結果）與 `next_occurrence`（confirmed/unknown/not_applicable）。請用 `operation.status` 判斷成功；舊 `is_completed` 可能反映下一筆仍未完成。查不到下一筆時不得再次完成。不同 ID 或無法確認的後繼項目回傳 unknown，並非宣稱系列結束；撤銷會檢查原 occurrence 身分，避免修改下一筆。詳見[回傳契約與限制](docs/REMINDER_RECURRENCE.md)。
+**重複提醒（#194）：** list/search 新增 `has_recurrence`、完整公開 `recurrence_rules` 與保留日期精度的 `due`。完成回傳新增 `operation`（寫入結果）與 `next_occurrence`（confirmed/unknown/not_applicable）。請用 `operation.status` 判斷成功；舊 `is_completed` 可能反映下一筆仍未完成。查不到下一筆時不得再次完成。不同 ID 或無法確認的後繼項目回傳 unknown，並非宣稱系列結束。詳見[回傳契約與限制](docs/REMINDER_RECURRENCE.md)。
 
 </details>
 

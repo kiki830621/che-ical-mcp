@@ -8,8 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - **Added** — Reminder list/search expose recurrence presence, full public rule values and precision-aware due dates (#194).
-- **Fixed** — Completion results distinguish a successful write from a recurring item's next incomplete state; return an observed successor or explicit uncertainty. Reopening is identified in the new operation object, while legacy fields remain compatible.
-- **Fixed** — Recurring completion undo/redo rejects an occurrence whose identity has changed; non-boolean completion input is rejected before mutation.
+- **Fixed** — Completion results distinguish a successful write from a recurring item's next incomplete state: the successor is observed once, synchronously, from the saved object (no polling), reported as `next_occurrence` with the observed due in the message, or as explicit uncertainty. Reopening is identified in the new operation object, while legacy fields remain compatible.
+- **Split out** — occurrence-identity-guarded undo for recurring completions and rejection of non-boolean `completed` input are tracked in separate PRs (verify round 1 on PR #195).
 
 ## [1.16.1] - 2026-08-31
 

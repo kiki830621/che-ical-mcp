@@ -49,7 +49,7 @@ struct ReminderRecurrenceRuleValue: Equatable, Sendable {
     }
 
     var dictionary: [String: Any] {
-        ["frequency": frequency, "interval": interval,
+        ["frequency": frequency, "frequency_raw_value": frequencyRawValue, "interval": interval,
          "calendar_identifier": nullable(calendarIdentifier), "first_day_of_week": firstDayOfWeek,
          "days_of_week": nullable(weekdays?.map(\.day)),
          "days_of_week_details": nullable(weekdays?.map { ["day": $0.day, "week_number": $0.ordinal] }),

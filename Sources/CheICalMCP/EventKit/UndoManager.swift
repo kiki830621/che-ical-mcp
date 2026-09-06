@@ -136,7 +136,6 @@ enum UndoOperation {
     case deleteReminder(snapshot: ReminderSnapshot)
     case updateReminder(id: String, oldSnapshot: ReminderSnapshot)
     case completeReminder(id: String, wasCompleted: Bool, title: String)
-    case completeRecurringReminder(before: ReminderCompletionSnapshot, requestedCompleted: Bool)
     case batch([UndoOperation])
 
     /// Human-readable description of this operation. **Surfaces verbatim
@@ -161,9 +160,6 @@ enum UndoOperation {
             return "Updated reminder: \(EventKitErrorSanitizer.sanitizeForInterpolation(old.title))"
         case .completeReminder(_, _, let title):
             return "Completed reminder: \(EventKitErrorSanitizer.sanitizeForInterpolation(title))"
-        case .completeRecurringReminder(let before, let requestedCompleted):
-            let action = requestedCompleted ? "Completed" : "Reopened"
-            return "\(action) recurring reminder: \(EventKitErrorSanitizer.sanitizeForInterpolation(before.title))"
         case .batch(let ops):
             return "Batch (\(ops.count) operations)"
         }

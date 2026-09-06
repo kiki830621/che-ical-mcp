@@ -122,34 +122,6 @@ final class ReminderCompletionTests: XCTestCase {
         XCTAssertTrue(JSONSerialization.isValidJSONObject(result.dictionary))
     }
 
-    func testOccurrenceGuardAllowsCompletionChangeButRejectsRollover() {
-        XCTAssertTrue(snapshot().matchesOccurrence(snapshot(completed: true)))
-        XCTAssertFalse(snapshot().matchesOccurrence(snapshot(day: 6)))
-        XCTAssertFalse(snapshot().matchesOccurrence(snapshot(interval: 2)))
-        XCTAssertFalse(snapshot().matchesOccurrence(snapshot(calendar: "other")))
-        XCTAssertFalse(snapshot().matchesOccurrence(snapshot(source: "other")))
-        XCTAssertFalse(snapshot().matchesOccurrence(snapshot(id: "other")))
-    }
-
-    func testRecurringOccurrenceWithoutDueCannotBeSafelyRestored() {
-        XCTAssertFalse(snapshot(day: nil).matchesOccurrence(snapshot(day: nil)))
-        XCTAssertTrue(snapshot(recurring: false, day: nil)
-            .matchesOccurrence(snapshot(completed: true, recurring: false, day: nil)))
-    }
-
-    func testMissingOrEmptyRecurringRulesCannotEstablishIdentity() {
-        let original = snapshot()
-        let unavailableRules: [[ReminderRecurrenceRuleValue]?] = [nil, []]
-        for rules in unavailableRules {
-            let unknownRules = ReminderCompletionSnapshot(id: original.id, title: original.title,
-                calendarID: original.calendarID, sourceID: original.sourceID,
-                isCompleted: false, hasRecurrence: true, due: original.due, rules: rules)
-            XCTAssertFalse(unknownRules.matchesOccurrence(unknownRules))
-            XCTAssertEqual(ReminderNextOccurrence.evaluate(before: unknownRules,
-                observed: snapshot(day: 6), requestedCompleted: true).status, "unknown")
-        }
-    }
-
     func testAbsentSuccessorUsesExplicitNullReminder() throws {
         for next in [ReminderNextOccurrence.notApplicable, .unknown(reason: "observation_unavailable")] {
             XCTAssertTrue(next.dictionary["reminder"] is NSNull)
@@ -169,8 +141,25 @@ final class ReminderCompletionTests: XCTestCase {
         XCTAssertTrue(due["date_time"] is NSNull)
     }
 
-    func testInvalidRecurringDueCannotEstablishUndoIdentity() {
-        let invalid = snapshot(day: 32)
-        XCTAssertFalse(invalid.matchesOccurrence(invalid))
+    func testConfirmedMessageIncludesObservedNextDue() throws {
+        // #194 asks for "completed; next occurrence <date>": the human-readable
+        // message must carry the observed successor's due, not just the JSON.
+        let before = snapshot()
+        let after = snapshot(day: 6)
+        let result = ReminderCompletionResult(before: before, afterSave: after,
+            requestedCompleted: true, nextOccurrence: .evaluate(
+                before: before, observed: after, requestedCompleted: true))
+        let message = try XCTUnwrap(result.dictionary["message"] as? String)
+        XCTAssertTrue(message.contains("2026-09-06"), message)
+    }
+
+    func testConfirmedMessageUsesInstantWhenDueHasTimeZone() throws {
+        let before = snapshot(hour: 9, zone: "Asia/Taipei")
+        let after = snapshot(day: 6, hour: 9, zone: "Asia/Taipei")
+        let result = ReminderCompletionResult(before: before, afterSave: after,
+            requestedCompleted: true, nextOccurrence: .evaluate(
+                before: before, observed: after, requestedCompleted: true))
+        let message = try XCTUnwrap(result.dictionary["message"] as? String)
+        XCTAssertTrue(message.contains("2026-09-06T01:00:00Z"), message)
     }
 }

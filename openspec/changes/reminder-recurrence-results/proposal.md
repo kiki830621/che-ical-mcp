@@ -7,7 +7,7 @@ Issue #194：讀取提醒沒有重複規則，且完成操作回傳 store 物件
 - list/search 增加 has_recurrence、完整公開 recurrence_rules 與保留精度的 due。
 - completion 以不可變快照區分操作結果與下一筆觀測，保留舊欄位。
 - 同 ID 的原地推進可在身分與日期條件成立時回報 confirmed；未確認狀態為 unknown，不以查詢失敗重試寫入。
-- 對重複提醒的 undo/redo 驗證目標到期元件，避免操作已推進的 occurrence。
+- （已拆出）重複提醒 undo/redo 的 occurrence 身分驗證，以及非布林 `completed` 的拒絕，各自另開 PR；本變更不含。
 
 ## Capabilities
 
@@ -21,7 +21,7 @@ Issue #194：讀取提醒沒有重複規則，且完成操作回傳 store 物件
 
 ## Impact
 
-Server.swift、EventKitManager.swift、UndoManager.swift、新增 ReminderRecurrence.swift、ReminderCompletion.swift、測試與雙語 README。
+Server.swift、EventKitManager.swift、新增 ReminderRecurrence.swift、ReminderCompletion.swift、測試與雙語 README。
 
 ## Non-Goals
 

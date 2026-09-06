@@ -43,14 +43,4 @@ final class ReminderCompletionHandlerTests: XCTestCase {
         XCTAssertEqual(json["action"] as? String, "completed")
     }
 
-    func testInvalidCompletedValueDoesNotMutate() async throws {
-        let fake = CompletionFake()
-        let server = try await CheICalMCPServer(reminderCompletionSource: fake)
-        do {
-            _ = try await server.executeToolCall(name: "complete_reminder", arguments: ["reminder_id": .string("r"), "completed": .string("false")])
-            XCTFail("Must reject non-boolean completed before writing")
-        } catch { }
-        let calls = await fake.calls
-        XCTAssertEqual(calls, 0)
-    }
 }

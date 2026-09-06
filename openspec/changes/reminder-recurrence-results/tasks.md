@@ -1,7 +1,7 @@
 - [x] [P] Implement recurrence/due value serializers and their unit tests in ReminderRecurrence.swift and ReminderRecurrenceTests.swift.
 - [x] [P] Implement immutable completion response types, pure successor decision and their unit tests in ReminderCompletion.swift and ReminderCompletionTests.swift.
 - [x] Integrate read metadata, completion manager/source and handler/dispatch tests.
-- [x] Guard recurring undo/redo against occurrence identity drift and test the guard.
+- [-] Guard recurring undo/redo against occurrence identity drift — split into a separate PR after verify round 1 (report rows 1, 8, 9, 18).
 - [x] Update README examples and change notes; inspect diff and macOS CI results.
 
-Initial macOS CI built successfully and ran 564 tests; one Lord Howe half-hour DST fold assertion failed. Added an alternate-offset round-trip guard; follow-up macOS CI validation is pending.
+macOS CI on `35ca8e7` built and ran 564 tests with 0 failures (the Lord Howe half-hour DST fold assertion was fixed by the alternate-offset round-trip guard). Verify round 1 on PR #195 then drove: a single synchronous post-save observation (no polling, no observation token), `frequency_raw_value` on the wire, the observed next-occurrence date in the completion message, and the undo guard + strict-boolean input split into separate PRs.

@@ -109,4 +109,14 @@ final class ReminderRecurrenceTests: XCTestCase {
         XCTAssertEqual((metadata["recurrence_rules"] as? [[String: Any]])?.count, 0)
         XCTAssertTrue(metadata["due"] is NSNull)
     }
+
+    func testRuleDictionaryEmitsFrequencyRawValue() {
+        // docs/REMINDER_RECURRENCE.md promises this field as the escape hatch for a
+        // future frequency that serializes as "unknown"; it must actually be on the wire.
+        let rule = EKRecurrenceRule(recurrenceWith: .weekly, interval: 1, end: nil)
+        let json = ReminderRecurrenceRuleValue(from: rule).dictionary
+        XCTAssertEqual(json["frequency"] as? String, "weekly")
+        XCTAssertEqual(json["frequency_raw_value"] as? Int, EKRecurrenceFrequency.weekly.rawValue)
+        XCTAssertTrue(JSONSerialization.isValidJSONObject(json))
+    }
 }

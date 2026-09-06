@@ -38,24 +38,24 @@ Read `operation.status`, not legacy `is_completed`, to determine whether the wri
 }
 ```
 
-The example is illustrative. `has_recurrence` and `operation.target` capture the item **before** mutation. `is_completed` and `title` retain the saved object's values. `completed=false` produces `operation.type="reopen"` and `next_occurrence.status="not_applicable"`; legacy `action="completed"` is intentionally preserved for existing clients. A supplied non-boolean `completed` is rejected before mutation rather than silently completing a reminder.
+The example is illustrative. `has_recurrence` and `operation.target` capture the item **before** mutation. `is_completed` and `title` retain the saved object's values. `completed=false` produces `operation.type="reopen"` and `next_occurrence.status="not_applicable"`; legacy `action="completed"` is intentionally preserved for existing clients. A non-boolean `completed` currently falls back to the legacy default (`true`); rejecting it is a breaking change tracked in a separate PR.
 
 | Next status | Contract |
 | --- | --- |
-| `confirmed` | The same ID/list/source was observed as incomplete with unchanged known recurrence rules and a strictly later comparable due date. `reminder` contains the observed item, including `id` and `due`. |
-| `unknown` | The ID changed/disappeared, rules/due cannot be compared, the record has not advanced, or observation was cancelled/interleaved. `reminder` is null and `reason` explains why. |
+| `confirmed` | The same ID/list/source was observed as incomplete with unchanged known recurrence rules and a strictly later comparable due date. `reminder` contains the observed item, including `id` and `due`, and `message` reads `Next occurrence: <date or instant>`. |
+| `unknown` | The ID changed/disappeared, rules/due cannot be compared, or the record has not advanced. `reminder` is null and `reason` explains why. |
 | `not_applicable` | Non-recurring item, reopening, or an already-completed target. `reminder` is null. |
 
-The resolver reads only the known local ID, immediately and after short delays (300ms total pacing). It does not force cloud sync or use title/external-ID guesses. It deliberately does not emit `none`: absence alone cannot prove a recurring series ended. Different-ID successors and sources without reliable observable identity remain `unknown`. A confirmed result is an observation, not a cross-device transactional guarantee. A next occurrence can still be overdue.
+The resolver observes the saved object exactly once, synchronously, before the handler suspends: EventKit advances a recurring reminder in place during `save`, so that read already reflects the successor. It does not poll, force cloud sync, call `reset`, or use title/external-ID guesses — a later read of the cached store could only reflect what another writer did, so it would misattribute a concurrent edit as this call's successor. The observation is local to this process's cached store; an edit made concurrently by Reminders.app or another device is not visible to it. It deliberately does not emit `none`: absence alone cannot prove a recurring series ended. Different-ID successors and sources without reliable observable identity remain `unknown`. A confirmed result is a best-effort local observation, not a cross-device transactional guarantee. A next occurrence can still be overdue.
 
 **An unknown next occurrence is not a failed completion. Do not repeat the write.** Only save failures use the MCP error path. Existing ID-only writes do not guarantee exactly-once behavior on client/transport retries; an ID may already refer to a later occurrence.
 
-Recurring completion undo/redo validates the original occurrence identity. If its due date, rules, list, or source changed, or the target cannot be identified, the operation fails safely and the history entry is retained. It does not claim to undo the whole series. Single-reminder non-recurring undo retains its existing behavior.
+Undo of a completion uses the existing single-reminder record: it reverts `is_completed` on whatever the ID resolves to now, which for an advanced recurring reminder is the next occurrence. An occurrence-identity-guarded undo for recurring completions is tracked in a separate PR.
 
 The MCP response remains JSON in text content; this change does not migrate to MCP `structuredContent`. Clients rejecting unknown fields must update their decoders. Clients that read only the old `is_completed` field must migrate to `operation` to distinguish successful completion from successor state.
 
 ## Verification
 
-Unit tests cover recurrence/date serialization, DST, successor decision and undo identity. Injected handler/dispatch tests cover the actual JSON envelope, count semantics, reopening and invalid input. macOS CI compiles and runs the suite. Live iCloud/local/Exchange rollover, identifier behavior and undo need a signed, authorized macOS session and are not proven by fake tests. Verify the running binary version before those checks; use the same MCP session for undo/redo.
+Unit tests cover recurrence/date serialization, DST and the successor decision. Injected handler/dispatch tests cover the actual JSON envelope, count semantics and reopening. macOS CI compiles and runs the suite. Live iCloud/local/Exchange rollover and identifier behavior need a signed, authorized macOS session and are not proven by fake tests. Verify the running binary version before those checks; use the same MCP session for undo/redo.
 
 References: [issue #194](https://github.com/PsychQuant/che-ical-mcp/issues/194), [Apple recurrence guide](https://developer.apple.com/documentation/eventkit/creating-a-recurring-event), [Apple due components](https://developer.apple.com/documentation/eventkit/ekreminder/duedatecomponents).

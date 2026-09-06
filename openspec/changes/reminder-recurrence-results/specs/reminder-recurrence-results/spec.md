@@ -22,16 +22,8 @@ A successful save SHALL return operation.status succeeded even when the returned
 
 ### Requirement: Report only observed successors
 
-The completion result SHALL contain next_occurrence with confirmed, unknown or not_applicable status. confirmed SHALL require an observed, same-identity incomplete reminder with a valid later due date and matching recurrence/calendar. Missing, ambiguous, concurrent or unchanged observations SHALL be unknown. A failed observation SHALL NOT repeat the write or report the successful write as failed.
+The completion result SHALL contain next_occurrence with confirmed, unknown or not_applicable status. confirmed SHALL require an observed, same-identity incomplete reminder with a valid later due date and matching recurrence/calendar. The observation SHALL be taken once, synchronously, from the saved object before any suspension point; the handler SHALL NOT poll or force a refresh. Missing, ambiguous or unchanged observations SHALL be unknown. A failed observation SHALL NOT repeat the write or report the successful write as failed.
 
 #### Scenario: No successor can be identified
 - WHEN completion saves successfully but the known ID cannot identify a successor
 - THEN next_occurrence.status is unknown and operation.status remains succeeded.
-
-### Requirement: Protect recurring undo targets
-
-Undo and redo SHALL reject a recurring completion record when the current reminder no longer matches the recorded occurrence identity. A failed undo SHALL retain its history entry.
-
-#### Scenario: Original ID now refers to a later due date
-- WHEN undo resolves the same ID with different due components
-- THEN it refuses to mutate that next occurrence.

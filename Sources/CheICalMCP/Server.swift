@@ -1762,16 +1762,9 @@ class CheICalMCPServer {
         guard let reminderId = arguments["reminder_id"]?.stringValue else {
             throw ToolError.invalidParameter("reminder_id is required")
         }
-        // Never interpret a supplied non-boolean as a request to complete.
-        let completed: Bool
-        if let value = arguments["completed"] {
-            guard let requested = value.boolValue else {
-                throw ToolError.invalidParameter("completed must be a boolean")
-            }
-            completed = requested
-        } else {
-            completed = true
-        }
+        // Legacy contract: a missing or non-boolean `completed` means complete.
+        // Rejecting non-boolean input is a breaking change tracked separately.
+        let completed = arguments["completed"]?.boolValue ?? true
         let result = try await reminderCompletionSource.completeReminder(identifier: reminderId, completed: completed)
         return try actionResult(result.dictionary)
     }
