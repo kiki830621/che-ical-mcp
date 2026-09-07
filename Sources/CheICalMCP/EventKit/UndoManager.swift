@@ -192,7 +192,10 @@ actor CalendarUndoManager {
     private var redoStack: [UndoRecord] = []
     private let maxStackSize = 50
 
-    /// Production code uses `shared`; other instances exist only for tests.
+    /// Production code uses `shared`. The internal initializer is a test seam
+    /// for the stack-discipline tests (`ReminderCompletionUndoTests`): nothing
+    /// injects a manager into a handler, so a `*Source` protocol would have no
+    /// consumer — the tests exercise this actor's own stack semantics.
     init() {}
 
     /// Record a mutation. Clears the redo stack.
@@ -268,6 +271,25 @@ actor CalendarUndoManager {
 struct UnrecoverableUndoError: LocalizedError, Sendable {
     let message: String
     var errorDescription: String? { message }
+}
+
+/// Author-controlled message (the title is passed through
+/// `sanitizeForInterpolation`), so it may reach the client verbatim — without
+/// this the explicit permanent-failure message flattens to `error_unknown`.
+extension UnrecoverableUndoError: TrustedErrorMessage {}
+
+extension UndoOperation {
+    /// The record for a completion write. A recurring snapshot gets the
+    /// identity-guarded record only when it can ever match again
+    /// (`isIdentifiable`); otherwise the legacy identifier-keyed record, which
+    /// restores an unchanged item correctly instead of being discarded on its
+    /// first undo with a misleading reason.
+    static func forCompletion(before: ReminderCompletionSnapshot, requestedCompleted: Bool, savedTitle: String) -> UndoOperation {
+        if before.hasRecurrence && before.isIdentifiable {
+            return .completeRecurringReminder(before: before, requestedCompleted: requestedCompleted)
+        }
+        return .completeReminder(id: before.id, wasCompleted: before.isCompleted, title: savedTitle)
+    }
 }
 
 enum UndoFailureDisposition: Equatable {

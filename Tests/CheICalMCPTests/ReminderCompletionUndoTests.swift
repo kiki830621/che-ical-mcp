@@ -1,3 +1,4 @@
+import EventKit
 import XCTest
 @testable import CheICalMCP
 
@@ -69,5 +70,34 @@ final class ReminderCompletionUndoTests: XCTestCase {
         XCTAssertEqual(UndoFailureDisposition.of(ToolError.invalidParameter("transient")), .restore)
         XCTAssertEqual(UndoFailureDisposition.of(EventKitError.reminderNotFound(identifier: "x")), .restore)
         XCTAssertEqual(UnrecoverableUndoError(message: "gone").errorDescription, "gone")
+    }
+
+    func testCompletionRecordFallsBackToLegacyWhenTheSnapshotIsNotIdentifiable() {
+        // A guarded record that can never match again (no comparable due, no known
+        // rules) would be discarded on its first undo with a misleading reason; the
+        // legacy identifier-keyed record still restores such an unchanged item.
+        let daily = ReminderRecurrenceRuleValue(from: EKRecurrenceRule(recurrenceWith: .daily, interval: 1, end: nil))
+        let identifiable = ReminderCompletionSnapshot(
+            id: "r", title: "t", calendarID: "c", sourceID: "s", isCompleted: false, hasRecurrence: true,
+            due: ReminderDueValue(components: DateComponents(year: 2026, month: 9, day: 5)), rules: [daily])
+        guard case .completeRecurringReminder = UndoOperation.forCompletion(before: identifiable, requestedCompleted: true, savedTitle: "t") else {
+            return XCTFail("identifiable recurring snapshot must get the guarded record")
+        }
+        guard case .completeReminder(let id, let wasCompleted, let title) = UndoOperation.forCompletion(before: snapshot(), requestedCompleted: true, savedTitle: "Saved") else {
+            return XCTFail("non-identifiable recurring snapshot must fall back to the legacy record")
+        }
+        XCTAssertEqual(id, "recurring-194"); XCTAssertFalse(wasCompleted); XCTAssertEqual(title, "Saved")
+        let oneOff = ReminderCompletionSnapshot(id: "o", title: "t", calendarID: "c", sourceID: "s", isCompleted: true, hasRecurrence: false, due: nil, rules: [])
+        guard case .completeReminder(_, let was, _) = UndoOperation.forCompletion(before: oneOff, requestedCompleted: false, savedTitle: "t") else {
+            return XCTFail("one-off reminder must use the legacy record")
+        }
+        XCTAssertTrue(was)
+    }
+
+    func testUnrecoverableUndoErrorMessageSurvivesResponseSanitization() {
+        // The whole point of the permanent-failure path is the explicit message; an
+        // untrusted error type is flattened to `error_unknown` on the wire.
+        let sanitized = EventKitErrorSanitizer.sanitizeForResponse(UnrecoverableUndoError(message: "entry discarded; reopen explicitly"))
+        XCTAssertEqual(sanitized.code, "entry discarded; reopen explicitly")
     }
 }
