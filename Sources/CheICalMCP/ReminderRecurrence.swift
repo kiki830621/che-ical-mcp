@@ -55,7 +55,7 @@ struct ReminderRecurrenceRuleValue: Equatable, Sendable {
          "days_of_week_details": nullable(weekdays?.map { ["day": $0.day, "week_number": $0.ordinal] }),
          "days_of_month": nullable(daysOfMonth), "months_of_year": nullable(monthsOfYear),
          "weeks_of_year": nullable(weeksOfYear), "days_of_year": nullable(daysOfYear),
-         "set_positions": nullable(setPositions), "end_date": nullable(endDate.map(utcString)),
+         "set_positions": nullable(setPositions), "end_date": nullable(endDate.map { utcString($0) }),
          "occurrence_count": nullable(occurrenceCount)]
     }
 }
@@ -148,15 +148,18 @@ struct ReminderDueValue: Equatable, Sendable {
 
     var dictionary: [String: Any] {
         let date = String(format: "%04d-%02d-%02d", components.year!, components.month!, components.day!)
+        // HH:MM:SS; a missing minute/second is 00, as EventKit treats it. Sub-second
+        // precision, when present, is milliseconds on both `time` and `date_time`.
+        let fraction = components.nanosecond.map { String(format: ".%03d", $0 / 1_000_000) } ?? ""
         let time: String? = components.hour.map {
-            let base = String(format: "%02d:%02d:%02d", $0, components.minute ?? 0, components.second ?? 0)
-            return components.nanosecond.map { base + String(format: ".%09d", $0) } ?? base
+            String(format: "%02d:%02d:%02d", $0, components.minute ?? 0, components.second ?? 0) + fraction
         }
-        let absolute = components.hour != nil && components.timeZone != nil ? chronologicalDate : nil
+        // chronologicalDate already carries the sub-second part; only the rendering changes.
+        let instant = components.hour != nil && components.timeZone != nil ? chronologicalDate : nil
         return ["date": date, "time": nullable(time),
                 "timezone": nullable(components.timeZone?.identifier),
                 "calendar_identifier": nullable(components.calendar.map { String(describing: $0.identifier) }),
-                "date_time": nullable(absolute.map(utcString))]
+                "date_time": nullable(instant.map { utcString($0, fractional: components.nanosecond != nil) })]
     }
 }
 
@@ -172,9 +175,9 @@ private func nullable<T>(_ value: T?) -> Any {
     return NSNull()
 }
 
-private func utcString(_ date: Date) -> String {
+private func utcString(_ date: Date, fractional: Bool = false) -> String {
     let formatter = ISO8601DateFormatter()
     formatter.timeZone = TimeZone(secondsFromGMT: 0)
-    formatter.formatOptions = [.withInternetDateTime]
+    formatter.formatOptions = fractional ? [.withInternetDateTime, .withFractionalSeconds] : [.withInternetDateTime]
     return formatter.string(from: date)
 }

@@ -126,4 +126,16 @@ final class ReminderRecurrenceTests: XCTestCase {
         XCTAssertTrue(reminderMetadata(hasRecurrence: true, rules: [], due: nil)["recurrence_rules"] is NSNull)
         XCTAssertEqual((reminderMetadata(hasRecurrence: false, rules: [], due: nil)["recurrence_rules"] as? [Any])?.count, 0)
     }
+
+    func testSubSecondDueRendersMillisecondsOnBothTimeAndDateTime() throws {
+        // `time` used to carry 9-digit nanoseconds while `date_time` dropped them:
+        // the two representations of one due disagreed in precision (row 8).
+        var c = DateComponents()
+        c.year = 2026; c.month = 9; c.day = 5; c.hour = 12; c.minute = 30; c.second = 5
+        c.nanosecond = 250_000_000
+        c.timeZone = TimeZone(secondsFromGMT: 0)
+        let json = try XCTUnwrap(ReminderDueValue(components: c)).dictionary
+        XCTAssertEqual(json["time"] as? String, "12:30:05.250")
+        XCTAssertEqual(json["date_time"] as? String, "2026-09-05T12:30:05.250Z")
+    }
 }
