@@ -38,7 +38,7 @@ Read `operation.status`, not legacy `is_completed`, to determine whether the wri
 }
 ```
 
-The example is illustrative. `has_recurrence` and `operation.target` capture the item **before** mutation. `is_completed` and `title` retain the saved object's values. `completed=false` produces `operation.type="reopen"` and `next_occurrence.status="not_applicable"`; legacy `action="completed"` is intentionally preserved for existing clients. A non-boolean `completed` currently falls back to the legacy default (`true`); rejecting it is a breaking change tracked in PR #201. `observed` echoes the saved object as read right after save (`id`, `title`, `is_completed`, `has_recurrence`, `due`) regardless of `next_occurrence.status`.
+The example is illustrative. `has_recurrence` and `operation.target` capture the item **before** mutation. `is_completed` and `title` retain the saved object's values. `completed=false` produces `operation.type="reopen"` and `next_occurrence.status="not_applicable"`; legacy `action="completed"` is intentionally preserved for existing clients. A non-boolean `completed` (string or number) is rejected before any read or write on all three reminder tools (BREAKING, see CHANGELOG). Omitted or JSON `null` keeps each tool's meaning: on `complete_reminder` it means complete; on the `completed` filter of `list_reminders` / `search_reminders` it means no filter. On `list_reminders` the check applies even when `filter` is supplied (which then takes priority over the value). `observed` echoes the saved object as read right after save (`id`, `title`, `is_completed`, `has_recurrence`, `due`) regardless of `next_occurrence.status`.
 
 | Next status | Contract |
 | --- | --- |

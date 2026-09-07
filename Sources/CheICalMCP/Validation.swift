@@ -186,6 +186,21 @@ enum InputValidation {
         throw ToolError.invalidParameter("\(key) must be an integer")
     }
 
+    /// A boolean argument that may be omitted; JSON `null` counts as omitted.
+    /// Any other non-boolean value (string, number, …) is rejected. The old
+    /// `?.boolValue ?? default` shape silently turned `"false"` into the default,
+    /// which on `complete_reminder` meant completing a reminder the caller
+    /// asked to reopen. `key` is a caller-supplied literal, never user input
+    /// (the message is a `TrustedErrorMessage`).
+    static func requireOptionalBool(_ arguments: [String: Value], key: String) throws -> Bool? {
+        guard let value = arguments[key] else { return nil }
+        if case .null = value { return nil }
+        guard let bool = value.boolValue else {
+            throw ToolError.invalidParameter("\(key) must be a boolean (true or false)")
+        }
+        return bool
+    }
+
     /// `limit`-flavored wrapper around `requireOptionalInt` that adds bounds
     /// validation. Rejects `limit ≤ 0` (zero events back is never a useful
     /// caller intent — most likely an off-by-one bug) and caps the upper

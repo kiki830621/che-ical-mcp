@@ -193,4 +193,11 @@ final class CLIRunnerTests: XCTestCase {
         let (jsonMessage, _) = CLIRunner.formatErrorForCLI(err)
         XCTAssertTrue(jsonMessage.contains("Missing tool name"))
     }
+
+    func testStdinJSONNullBecomesValueNull() throws {
+        // #205: `null` means "omitted" everywhere; mapping it to "" would turn a
+        // documented no-op into a rejected argument on the --cli surface.
+        let (_, args) = try CLIRunner.parseJSONInputToValues(#"{"tool":"complete_reminder","arguments":{"reminder_id":"r","completed":null}}"#)
+        guard case .null? = args["completed"] else { return XCTFail("expected Value.null, got \(String(describing: args["completed"]))") }
+    }
 }

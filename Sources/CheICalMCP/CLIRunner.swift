@@ -159,7 +159,7 @@ enum CLIRunner {
         case let dict as [String: Any]:
             return .object(dict.mapValues { jsonToValue($0) })
         case is NSNull:
-            return .string("")
+            return .null   // "omitted" everywhere; "" would be a rejected string for boolean arguments (#205)
         default:
             return .string("\(obj)")
         }

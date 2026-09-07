@@ -260,4 +260,21 @@ final class InputValidationTests: XCTestCase {
             try InputValidation.requireIntIfPresent(args, key: "limit", default: 10)
         )
     }
+
+    // MARK: - requireOptionalBool
+
+    func testRequireOptionalBoolAcceptsBooleansAndTreatsNullAsOmitted() throws {
+        XCTAssertEqual(try InputValidation.requireOptionalBool(["completed": .bool(true)], key: "completed"), true)
+        XCTAssertEqual(try InputValidation.requireOptionalBool(["completed": .bool(false)], key: "completed"), false)
+        XCTAssertNil(try InputValidation.requireOptionalBool([:], key: "completed"))
+        XCTAssertNil(try InputValidation.requireOptionalBool(["completed": .null], key: "completed"))
+    }
+
+    func testRequireOptionalBoolRejectsStringsAndNumbers() {
+        for bad in [Value.string("false"), .string("true"), .string(""), .int(0), .int(1), .double(0.5)] {
+            XCTAssertThrowsError(try InputValidation.requireOptionalBool(["completed": bad], key: "completed"), "\(bad)") { error in
+                XCTAssertTrue("\(error)".contains("completed must be a boolean"), "\(error)")
+            }
+        }
+    }
 }
