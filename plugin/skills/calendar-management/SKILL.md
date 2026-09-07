@@ -67,9 +67,9 @@ list_reminders          → See tasks by list or completion status
 ### 3. Reminders (Tasks)
 | Task | Tool | Key Parameters |
 |------|------|----------------|
-| List tasks | `list_reminders` | calendar_name, completed (true/false/omit) |
+| List tasks | `list_reminders` | calendar_name, completed (JSON boolean; omit/null = all; strings/numbers rejected) |
 | Create task | `create_reminder` | title, calendar_name (required), due_date |
-| Complete | `complete_reminder` | reminder_id, completed (true/false) |
+| Complete | `complete_reminder` | reminder_id, completed (JSON boolean, default true; strings/numbers rejected) |
 
 > **Recurring reminders (#194)**: list/search items carry `has_recurrence`, `recurrence_rules` and a `due` object (`date` / `time` / `timezone` / `date_time`). `complete_reminder` returns `operation` (write outcome), `observed` (the saved object) and `next_occurrence`. **Read `operation.status`, not `is_completed`**: completing a recurring reminder advances the same item to its next occurrence, so `is_completed` can be `false` after a successful write. `next_occurrence.status: "confirmed"` carries the next due (also in the message); `"unknown"` is not a failure — never repeat the write because of it.
 
