@@ -466,7 +466,7 @@ class CheICalMCPServer {
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
-                        "completed": .object(["type": .string("boolean"), "description": .string("Legacy filter: true=completed, false=incomplete, omit=all. Must be a JSON boolean; strings and numbers are rejected. Prefer using 'filter' parameter instead.")]),
+                        "completed": .object(["type": .string("boolean"), "description": .string("Legacy filter: true=completed, false=incomplete, omit or JSON null=all. Must be a JSON boolean; strings and numbers are rejected even when 'filter' is supplied. Prefer using 'filter' parameter instead.")]),
                         "filter": .object([
                             "type": .string("string"),
                             "enum": .array([.string("all"), .string("incomplete"), .string("completed"), .string("overdue")]),
@@ -617,7 +617,7 @@ class CheICalMCPServer {
                     "type": .string("object"),
                     "properties": .object([
                         "reminder_id": .object(["type": .string("string"), "description": .string("The reminder identifier")]),
-                        "completed": .object(["type": .string("boolean"), "description": .string("true=completed, false=incomplete (default true). Must be a JSON boolean; strings and numbers are rejected before any write.")])
+                        "completed": .object(["type": .string("boolean"), "description": .string("true=completed, false=incomplete (omit or JSON null = true). Must be a JSON boolean; strings and numbers are rejected before any write.")])
                     ]),
                     "required": .array([.string("reminder_id")])
                 ]),
@@ -655,7 +655,7 @@ class CheICalMCPServer {
                         "tag": .object(["type": .string("string"), "description": .string("Filter by tag (without # prefix). Example: \"grocery\"")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Optional reminder list name to filter by")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")]),
-                        "completed": .object(["type": .string("boolean"), "description": .string("Filter: true=completed, false=incomplete, omit=all. Must be a JSON boolean; strings and numbers are rejected.")]),
+                        "completed": .object(["type": .string("boolean"), "description": .string("Filter: true=completed, false=incomplete, omit or JSON null=all. Must be a JSON boolean; strings and numbers are rejected.")]),
                         "limit": .object([
                             "type": .string("integer"),
                             "description": .string("Maximum number of reminders to return")
@@ -1551,6 +1551,9 @@ class CheICalMCPServer {
         let calendarSource = try ReminderCleanup.requireStringIfPresent(arguments, key: "calendar_source")
         try ReminderCleanup.rejectSourceWithoutName(name: calendarName, source: calendarSource)
 
+        // The type contract on `completed` is unconditional (BREAKING, see
+        // CHANGELOG); validate it before deciding whether `filter` overrides it.
+        let legacyCompleted = try InputValidation.requireOptionalBool(arguments, key: "completed")
         // Determine completion filter: 'filter' parameter takes priority over legacy 'completed'
         let completed: Bool?
         if let filterMode = filterMode {
@@ -1560,7 +1563,7 @@ class CheICalMCPServer {
             default: completed = nil  // "all"
             }
         } else {
-            completed = try InputValidation.requireOptionalBool(arguments, key: "completed")
+            completed = legacyCompleted
         }
 
         var reminders = try await reminderReadSource.listReminderSnapshots(

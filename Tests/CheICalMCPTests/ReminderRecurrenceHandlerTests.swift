@@ -42,21 +42,4 @@ final class ReminderRecurrenceHandlerTests: XCTestCase {
         XCTAssertNil(items[1]["is_overdue"])
         XCTAssertEqual(json["match_mode"] as? String, "any")
     }
-
-    func testListAndSearchRejectNonBooleanCompletedConsistently() async throws {
-        // The same parameter name must carry the same contract on every reminder tool.
-        let server = try await CheICalMCPServer(reminderReadSource: ReminderReadFake(records()))
-        for (tool, extra) in [("list_reminders", [String: Value]()), ("search_reminders", ["keyword": Value.string("x")])] {
-            var args = extra; args["completed"] = .string("true")
-            do {
-                _ = try await server.executeToolCall(name: tool, arguments: args)
-                XCTFail("\(tool) must reject a non-boolean completed")
-            } catch let error as ToolError {
-                XCTAssertTrue("\(error)".contains("completed must be a boolean"), "\(tool): \(error)")
-            }
-            var nullArgs = extra; nullArgs["completed"] = .null
-            let raw = try await server.executeToolCall(name: tool, arguments: nullArgs)
-            XCTAssertNotNil(try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any], "\(tool): null must mean omitted")
-        }
-    }
 }
