@@ -100,4 +100,20 @@ final class ReminderCompletionUndoTests: XCTestCase {
         let sanitized = EventKitErrorSanitizer.sanitizeForResponse(UnrecoverableUndoError(message: "entry discarded; reopen explicitly"))
         XCTAssertEqual(sanitized.code, "entry discarded; reopen explicitly")
     }
+
+    func testDiscardFailedUndoOnlyDropsTheRecordItWasHanded() async {
+        // A contract slip (discard called for a record that is not the one just
+        // popped) must not destroy an unrelated entry.
+        let manager = CalendarUndoManager()
+        await manager.record(.completeReminder(id: "a", wasCompleted: false, title: "A"))
+        await manager.record(.completeReminder(id: "b", wasCompleted: false, title: "B"))
+        guard let poppedB = await manager.popUndo() else { return XCTFail("expected b") }
+        let unrelated = UndoRecord(.completeReminder(id: "zzz", wasCompleted: false, title: "Z"))
+        await manager.discardFailedUndo(unrelated)
+        let canRedo = await manager.canRedo
+        XCTAssertTrue(canRedo, "b must still be on the redo stack — the unrelated record was not the popped one")
+        await manager.discardFailedUndo(poppedB)
+        let canRedoAfter = await manager.canRedo
+        XCTAssertFalse(canRedoAfter)
+    }
 }

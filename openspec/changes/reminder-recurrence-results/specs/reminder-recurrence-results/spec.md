@@ -27,3 +27,15 @@ The completion result SHALL contain next_occurrence with confirmed, unknown or n
 #### Scenario: No successor can be identified
 - WHEN completion saves successfully but the known ID cannot identify a successor
 - THEN next_occurrence.status is unknown and operation.status remains succeeded.
+
+### Requirement: Identity-guarded undo/redo for recurring completions
+
+A recurring completion whose pre-write snapshot has a due and rules SHALL be recorded with that snapshot. Undo and redo SHALL refresh the store, resolve the recorded identifier and act only when the current item still matches the recorded occurrence identity (id, list, source, due, rules; completion state and title excluded). When the identifier resolves to a different occurrence, the operation SHALL fail with an explicit message and the history entry SHALL be discarded, never re-appended. When the item cannot be found, the failure SHALL be transient and the entry SHALL be kept. A recurring snapshot without a due or without rules SHALL use the legacy identifier-keyed record.
+
+#### Scenario: Identifier advanced to the next occurrence
+- WHEN undo resolves the recorded ID to an item whose due differs from the snapshot
+- THEN it refuses, reports the reason on the wire, and the entry is removed so earlier operations remain undoable.
+
+#### Scenario: Unchanged occurrence
+- WHEN undo resolves the recorded ID to an item matching the snapshot's identity
+- THEN it restores the recorded completion state.

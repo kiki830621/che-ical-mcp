@@ -2054,14 +2054,15 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
         // against the store's current state, not the cache this completion
         // itself marked dirty.
         refreshIfNeeded()
-        // Not found is transient (store lag, revoked access): keep the entry for a
-        // retry, exactly like the legacy arms (#191). Only a resolved-but-different
-        // occurrence is permanent.
+        // Not found is treated as transient (store lag) and keeps the entry for a
+        // retry, exactly like the legacy arms (#191); a deleted item therefore
+        // stays on the stack until the user clears it, same as every other arm.
+        // Only a resolved-but-different occurrence is permanent.
         guard let reminder = eventStore.calendarItem(withIdentifier: before.id) as? EKReminder else {
             throw EventKitError.reminderNotFound(identifier: before.id)
         }
         guard before.matchesOccurrence(ReminderCompletionSnapshot(from: reminder)) else {
-            throw UnrecoverableUndoError(message: "Cannot \(verb) recurring reminder completion of '\(title)': its identifier now resolves to a different occurrence (EventKit advances the series in place and keeps the finished occurrence as a separate completed record). Reopen that record explicitly: list_reminders with completed=true, then complete_reminder with completed=false. This history entry was discarded so earlier operations remain undoable.")
+            throw UnrecoverableUndoError(message: "Cannot \(verb) recurring reminder completion of '\(title)': its identifier no longer resolves to the recorded occurrence — the series advanced (EventKit keeps the finished occurrence as a separate completed record) or the item's due, rules, list or source were edited since. Act on the intended occurrence explicitly (list_reminders with completed=true, then complete_reminder). This history entry was discarded so earlier operations remain undoable.")
         }
         return reminder
     }

@@ -206,9 +206,12 @@ final class ReminderCompletionTests: XCTestCase {
         XCTAssertFalse(snapshot().matchesOccurrence(snapshot(id: "other")))
     }
 
-    func testRecurringSnapshotWithoutComparableDueOrRulesIsNotIdentifiable() {
+    func testRecurringSnapshotWithoutDueOrRulesIsNotIdentifiable() {
         XCTAssertFalse(snapshot(day: nil).isIdentifiable)
-        XCTAssertFalse(snapshot(day: 32).isIdentifiable)
+        // Identity is value equality, not orderability: a due that has no
+        // chronological instant (DST fold, invalid day) is still comparable.
+        XCTAssertTrue(snapshot(day: 32).isIdentifiable)
+        XCTAssertTrue(snapshot(day: 32).matchesOccurrence(snapshot(day: 32)))
         let noRules = ReminderCompletionSnapshot(
             id: "r", title: "t", calendarID: "c", sourceID: "s", isCompleted: false,
             hasRecurrence: true, due: snapshot().due, rules: nil)

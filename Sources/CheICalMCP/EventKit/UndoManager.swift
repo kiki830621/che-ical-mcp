@@ -235,12 +235,14 @@ actor CalendarUndoManager {
     /// jams every older entry behind an always-failing head. Same call contract
     /// as `restoreFailedUndo` — only immediately after the popUndo that threw.
     func discardFailedUndo(_ record: UndoRecord) {
-        if !redoStack.isEmpty { redoStack.removeLast() }
+        // Destructive, so verify it is the record popUndo just moved: a
+        // contract slip must not destroy an unrelated entry.
+        if let top = redoStack.last, top.timestamp == record.timestamp { redoStack.removeLast() }
     }
 
     /// Symmetric discard for a permanently failed executeRedo.
     func discardFailedRedo(_ record: UndoRecord) {
-        if !undoStack.isEmpty { undoStack.removeLast() }
+        if let top = undoStack.last, top.timestamp == record.timestamp { undoStack.removeLast() }
     }
 
     func popRedo() -> UndoRecord? {
@@ -267,7 +269,13 @@ actor CalendarUndoManager {
 /// Thrown by executeUndo/executeRedo when the recorded target can no longer be
 /// acted on and never will be (e.g. a recurring reminder's identifier now
 /// resolves to a later occurrence). Distinct from transient failures such as
-/// a revoked permission, which keep their history entry for a retry (#191).
+/// a store that cannot find the item right now, which keep their history
+/// entry for a retry (#191).
+///
+/// `message` MUST be author-controlled literal text; any store-derived value
+/// interpolated into it (today: the reminder title) MUST pass
+/// `EventKitErrorSanitizer.sanitizeForInterpolation` first. That is the
+/// condition under which this type conforms to `TrustedErrorMessage`.
 struct UnrecoverableUndoError: LocalizedError, Sendable {
     let message: String
     var errorDescription: String? { message }
