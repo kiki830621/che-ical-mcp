@@ -118,8 +118,8 @@ Or just ask naturally:
 - `find_duplicate_events` — surface duplicates for cleanup
 
 ### Reminders (10)
-- `list_reminders` / `search_reminders` / `list_reminder_tags`
-- `create_reminder` / `update_reminder` / `complete_reminder` / `delete_reminder`
+- `list_reminders` / `search_reminders` / `list_reminder_tags` — list/search items carry `has_recurrence`, `recurrence_rules` and a `due` object (#194)
+- `create_reminder` / `update_reminder` / `complete_reminder` / `delete_reminder` — `complete_reminder` returns `operation` (write outcome), `observed` and `next_occurrence`; read `operation.status`, not legacy `is_completed` (#194)
 - `create_reminders_batch` / `delete_reminders_batch` — batch ops
 - `cleanup_completed_reminders` — single-call cleanup of all completed reminders (`dry_run=true` default; new in v1.7.2)
 
@@ -137,6 +137,9 @@ This plugin requires macOS permissions:
 Plugin version: 1.14.0 (matches MCP server version)
 
 ### Changelog
+
+**Unreleased**
+- **Recurring reminders (#194)**: `list_reminders` / `search_reminders` expose `has_recurrence`, structured `recurrence_rules` (incl. `frequency_raw_value`) and a `due` object (`date` / `time` / `timezone` / `date_time`). `complete_reminder` separates the write outcome (`operation`) from the saved object (`observed`) and reports the successor as `next_occurrence` (`confirmed` / `unknown` / `not_applicable`), observed once synchronously after save; the message carries the next due in the reminder's own wall clock. Contract: `docs/REMINDER_RECURRENCE.md`. Follow-ups: #204 (identity-guarded undo, PR #200), #205 (strict boolean `completed`, BREAKING, PR #201).
 
 **1.14.0** (2026-07-03)
 - **Claude Desktop tool-injection drop fixed** (#166): a literal `&` in `mcpb/manifest.json` `display_name` made Desktop 1.18286.0 silently drop the whole 29-tool server from every conversation (Claude Code was unaffected). Changed `&` → `and`; confirmed by single-variable intervention on the failing install + a `ManifestParityTests` regression guard. Also aligned `serverInfo.name` to the kebab manifest id (hygiene; empirically refuted as the cause).
