@@ -98,7 +98,7 @@ On first use, macOS prompts for **Calendar** and **Reminders** access — click 
 | `cleanup_completed_reminders` | Delete all completed reminders in one call, dry_run preview by default (v1.7.2) |
 
 
-**Recurring reminders (#194):** list/search include `has_recurrence`, complete public `recurrence_rules`, and precision-aware `due`. Completion adds `operation` (write outcome) and `next_occurrence` (confirmed/unknown/not_applicable). Use `operation.status` rather than legacy `is_completed`: a successful completion may leave the next occurrence incomplete. Unknown successor information must not trigger a second write. A different-ID or unconfirmable successor is reported as `unknown`, never as the series having ended. See [response contract and limitations](docs/REMINDER_RECURRENCE.md).
+**Recurring reminders (#194):** list/search include `has_recurrence`, complete public `recurrence_rules`, and precision-aware `due`. Completion adds `operation` (write outcome) and `next_occurrence` (confirmed/unknown/not_applicable). Use `operation.status` rather than legacy `is_completed`: a successful completion may leave the next occurrence incomplete. Unknown successor information must not trigger a second write. A different-ID or unconfirmable successor is reported as `unknown`, never as the series having ended. Undo of a recurring completion is identity-guarded (#204): once the identifier no longer resolves to the recorded occurrence it refuses explicitly and drops its history entry instead of jamming the stack. See [response contract and limitations](docs/REMINDER_RECURRENCE.md).
 
 </details>
 
