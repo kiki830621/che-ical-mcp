@@ -75,6 +75,8 @@ A **SessionStart hook** checks if the MCP is properly installed and shows setup 
 | Skill | Description |
 |-------|-------------|
 | `calendar-management` | Comprehensive guide for calendar operations |
+| `troubleshoot-tcc` | 5-step EventKit / TCC permission diagnostic (binary grant + host-app layer) |
+| `archive-event` | Archive an event from a narrative source (meeting notice, announcement, mail thread) with correction tracking and source citation |
 
 ### Commands
 
@@ -84,6 +86,7 @@ A **SessionStart hook** checks if the MCP is properly installed and shows setup 
 | `/week` | Show this week's calendar overview |
 | `/quick-event` | Create event from natural language |
 | `/remind` | Create reminder from natural language |
+| `/check-tcc` | Run the TCC permission diagnostic checklist |
 
 ## Usage Examples
 
@@ -142,6 +145,25 @@ Plugin version: 1.17.0 (matches MCP server version)
 - **Recurring reminders (#194)**: `list_reminders` / `search_reminders` expose `has_recurrence`, structured `recurrence_rules` (incl. `frequency_raw_value`) and a `due` object (`date` / `time` / `timezone` / `date_time`). `complete_reminder` separates the write outcome (`operation`) from the saved object (`observed`) and reports the successor as `next_occurrence` (`confirmed` / `unknown` / `not_applicable`), observed once synchronously after save; the message carries the next due in the reminder's own wall clock. Contract: `docs/REMINDER_RECURRENCE.md`.
 - **Identity-guarded undo for recurring completions (#204)**: undo/redo act only while the identifier still resolves to the recorded occurrence; otherwise they refuse explicitly and drop the entry so older operations stay undoable. 
 - **BREAKING — strict boolean `completed` (#205)**: `complete_reminder`, `list_reminders` and `search_reminders` reject a string or number `completed` before any read or write; omitted or JSON `null` keeps the old meaning (complete / no filter).
+
+**1.16.1** (2026-08-31)
+- **Series-deletion undo no longer fails with EKCADErrorDomain 1010** (#191): recurrence rules are captured as value snapshots and rebuilt on restore; a failed `undo` / `redo` now puts its record back on the stack instead of silently consuming it.
+- **`all_day` + `timezone` is rejected explicitly** (#190) instead of silently degrading the event to a timed one; a non-object `recurrence` value is rejected instead of silently dropped (#184).
+
+**1.16.0** (2026-08-31)
+- **New `archive-event` skill** (#180): archive an event from a narrative source (meeting notice, announcement, mail thread) with update-vs-create keyed on the original notice's Message-ID, mandatory estimate labelling + source citation, and three-tier calendar choice. `quick-event` description sharpened to mark the boundary.
+- **`excluded_occurrence_dates`** (#182): skip specific dates in a recurring series at creation time via `create_event` / `create_events_batch`; responses echo the normalized dates + `exclusion_count`; one `undo` removes the whole series including exclusions.
+- **Batch and series deletions now record undo entries** (#185): `delete_events_batch` and series deletion are each a single undo unit, consistent with `delete_event`.
+
+**1.15.0** (2026-07-10)
+- **Versioned-host drift signal** (#175): the startup banner detects a Claude Code versioned host binary (`~/.local/share/claude/versions/<v>`) with EventKit not fully granted and points at the host-side System Settings toggle instead of `--setup`.
+- **`--print-tcc-path` prints its execution context** (#169, #173): the parent process chain up to launchd plus a context-dependence warning; truncation, cycles and `ps` failures are surfaced instead of ending silently.
+
+**1.14.2** (2026-07-07, docs / skill layer only)
+- **`troubleshoot-tcc` covers the host-app (responsible-process) TCC layer** (#168): the skill, `/check-tcc`, `mcpb/README.md` and `plugin/CLAUDE.md` document the two-layer authorization model and which System Settings toggles to flip for Claude Code vs Claude Desktop. Binary byte-identical to 1.14.1.
+
+**1.14.1** (2026-07-05, metadata only)
+- Tool-count consistency across published surfaces (`server.json`, `PROMOTION.md`, `docs/COMPETITIVE_ANALYSIS.md` corrected to 29 tools). Binary functionally identical to 1.14.0.
 
 **1.14.0** (2026-07-03)
 - **Claude Desktop tool-injection drop fixed** (#166): a literal `&` in `mcpb/manifest.json` `display_name` made Desktop 1.18286.0 silently drop the whole 29-tool server from every conversation (Claude Code was unaffected). Changed `&` → `and`; confirmed by single-variable intervention on the failing install + a `ManifestParityTests` regression guard. Also aligned `serverInfo.name` to the kebab manifest id (hygiene; empirically refuted as the cause).
