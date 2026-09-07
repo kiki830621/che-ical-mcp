@@ -2008,7 +2008,7 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
             markNeedsRefresh()
             return "Undone: restored reminder '\(EventKitErrorSanitizer.sanitizeForInterpolation(oldSnapshot.title))' to previous state"
 
-        case .completeReminder(let id, let wasCompleted, let title):
+        case .completeReminder(let id, let wasCompleted, let completionDate, let title):
             try await ensureReminderAccess()
             let predicate = eventStore.predicateForReminders(in: nil)
             let reminders = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<[EKReminder], Error>) in
@@ -2019,7 +2019,14 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
             guard let reminder = reminders.first(where: { $0.calendarItemIdentifier == id }) else {
                 throw EventKitError.reminderNotFound(identifier: id)
             }
-            reminder.isCompleted = wasCompleted
+            // #196: restore the recorded completion instant, not "now" — setting
+            // isCompleted alone makes EventKit stamp the current date.
+            if wasCompleted {
+                reminder.isCompleted = true
+                reminder.completionDate = completionDate ?? Date()
+            } else {
+                reminder.isCompleted = false
+            }
             try eventStore.save(reminder, commit: true)
             markNeedsRefresh()
             return "Undone: set reminder '\(EventKitErrorSanitizer.sanitizeForInterpolation(title))' completion to \(wasCompleted)"
@@ -2027,7 +2034,14 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
         case .completeRecurringReminder(let before, _):
             try await ensureReminderAccess()
             let reminder = try resolveRecurringOccurrence(before, verb: "undo")
-            reminder.isCompleted = before.isCompleted
+            // #196: restore the recorded completion instant, not "now" — setting
+            // isCompleted alone makes EventKit stamp the current date.
+            if before.isCompleted {
+                reminder.isCompleted = true
+                reminder.completionDate = before.completionDate ?? Date()
+            } else {
+                reminder.isCompleted = false
+            }
             try eventStore.save(reminder, commit: true)
             markNeedsRefresh()
             return "Undone: set recurring reminder '\(EventKitErrorSanitizer.sanitizeForInterpolation(before.title))' completion to \(before.isCompleted)"
@@ -2090,7 +2104,7 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
         case .updateReminder(let id, _):
             return "Redo update: the reminder \(id) was restored. Apply your changes again."
 
-        case .completeReminder(let id, let wasCompleted, let title):
+        case .completeReminder(let id, let wasCompleted, _, let title):
             // Redo = set back to the new state (opposite of wasCompleted)
             try await ensureReminderAccess()
             let predicate = eventStore.predicateForReminders(in: nil)

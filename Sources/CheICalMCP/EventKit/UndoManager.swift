@@ -135,7 +135,7 @@ enum UndoOperation {
     case createReminder(id: String, title: String)
     case deleteReminder(snapshot: ReminderSnapshot)
     case updateReminder(id: String, oldSnapshot: ReminderSnapshot)
-    case completeReminder(id: String, wasCompleted: Bool, title: String)
+    case completeReminder(id: String, wasCompleted: Bool, completionDate: Date? = nil, title: String)
     case completeRecurringReminder(before: ReminderCompletionSnapshot, requestedCompleted: Bool)
     case batch([UndoOperation])
 
@@ -159,7 +159,7 @@ enum UndoOperation {
             return "Deleted reminder: \(EventKitErrorSanitizer.sanitizeForInterpolation(snapshot.title))"
         case .updateReminder(_, let old):
             return "Updated reminder: \(EventKitErrorSanitizer.sanitizeForInterpolation(old.title))"
-        case .completeReminder(_, _, let title):
+        case .completeReminder(_, _, _, let title):
             return "Completed reminder: \(EventKitErrorSanitizer.sanitizeForInterpolation(title))"
         case .completeRecurringReminder(let before, let requestedCompleted):
             let action = requestedCompleted ? "Completed" : "Reopened"
@@ -296,7 +296,8 @@ extension UndoOperation {
         if before.hasRecurrence && before.isIdentifiable {
             return .completeRecurringReminder(before: before, requestedCompleted: requestedCompleted)
         }
-        return .completeReminder(id: before.id, wasCompleted: before.isCompleted, title: savedTitle)
+        return .completeReminder(id: before.id, wasCompleted: before.isCompleted,
+                                 completionDate: before.completionDate, title: savedTitle)
     }
 }
 
