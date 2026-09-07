@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Undo restores the recorded `completion_date`** (#196): both completion undo records now carry the pre-write completion instant, and undoing back to the completed state writes that instant instead of letting EventKit stamp the undo time. Reopening a reminder completed yesterday and undoing puts yesterday back. Redo of a completion still stamps a fresh time, as a new completion would (Refs #196).
+
 ## [1.17.0] - 2026-09-07
 
 **#194 — reminder recurrence on read, and explicit completion results.**
