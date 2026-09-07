@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-09-07
+
 **#194 — reminder recurrence on read, and explicit completion results.**
 
 - **Added** — `list_reminders` / `search_reminders` expose `has_recurrence`, the full public `recurrence_rules` (including `frequency_raw_value`) and a `due` object (`date` / `time` / `timezone` / `date_time`) next to the legacy fields (Refs #194).
@@ -20,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Known follow-up (tracked separately)
 
 - #196 / #197 / #198 / #199 — review follow-ups (undo `completionDate`, read-path materialization cost, recurrence JSON shape parity with events, structural debt around `completeReminder`).
+- #202 / #203 / #206 / #207 — `destructiveHint` on `complete_reminder`; third read path + multi-rule coverage; deleted-item undo entries at the stack head (#191 design); sibling boolean arguments still coerce.
 
 ## [1.16.1] - 2026-08-31
 

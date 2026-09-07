@@ -134,11 +134,11 @@ This plugin requires macOS permissions:
 
 ## Version
 
-Plugin version: 1.14.0 (matches MCP server version)
+Plugin version: 1.17.0 (matches MCP server version)
 
 ### Changelog
 
-**Unreleased**
+**1.17.0** (2026-09-07)
 - **Recurring reminders (#194)**: `list_reminders` / `search_reminders` expose `has_recurrence`, structured `recurrence_rules` (incl. `frequency_raw_value`) and a `due` object (`date` / `time` / `timezone` / `date_time`). `complete_reminder` separates the write outcome (`operation`) from the saved object (`observed`) and reports the successor as `next_occurrence` (`confirmed` / `unknown` / `not_applicable`), observed once synchronously after save; the message carries the next due in the reminder's own wall clock. Contract: `docs/REMINDER_RECURRENCE.md`.
 - **Identity-guarded undo for recurring completions (#204)**: undo/redo act only while the identifier still resolves to the recorded occurrence; otherwise they refuse explicitly and drop the entry so older operations stay undoable. 
 - **BREAKING — strict boolean `completed` (#205)**: `complete_reminder`, `list_reminders` and `search_reminders` reject a string or number `completed` before any read or write; omitted or JSON `null` keeps the old meaning (complete / no filter).

@@ -470,6 +470,7 @@ macOS TCC（透明度、同意與控制）的隱私權限是**依應用程式**�
 
 | 版本 | 變更 |
 |------|------|
+| v1.17.0 | **重複提醒讀取＋明確的完成結果＋身分 guard 的 undo＋嚴格 boolean `completed`**（#194/#204/#205）：list/search 新增 `has_recurrence`、完整 `recurrence_rules`（含 `frequency_raw_value`）與 `due` 物件；`complete_reminder` 以 `operation`（寫入結果）、`observed`（存檔後物件）與 `next_occurrence`（save 後同步觀測一次；iCloud 真機：同 ID 就地推進、完成的那筆另存新 ID）分開回報，訊息用提醒自己的時區。重複提醒完成的 undo/redo 帶身分 guard：ID 不再指向原 occurrence 時明確拒絕並**丟棄** entry（不卡 stack），找不到則保留 entry（#191）。**破壞性變更**：三個 reminder 工具的 `completed` 必須是 JSON boolean（字串／數字在任何讀寫前拒絕；省略／`null` 維持原意；`--cli` 的 JSON `null` 視同省略）。PR #195 三輪 6-AI verify、#200／#201 各自 verify、兩次真機 stdio 探測。582 tests。 |
 | v1.16.1 | **型別安全＋真機驗證修復**（#184/#190/#191）：非物件 `recurrence` 改明確拒絕（原靜默丟棄）；`all_day`＋`timezone` 併用改明確拒絕（原靜默打掉 all-day 旗標、跨日界排除失效）；週期系列刪除的 undo 改由值快照重建 rule（修 EKCADErrorDomain 1010），且 undo/redo 失敗不再消費 entry。529 tests。 |
 | v1.16.0 | **週期排除＋undo 完整性＋archive-event skill**（#182/#185/#180）：create_event/batch 支援 `excluded_occurrence_dates`（two-pass 建立後移除、補償刪除、第一場不可排除）；batch/series 刪除現在記 undo entry（單一 `.batch` 單元）；undo 週期事件建立現在移除整個系列；新 `archive-event` skill — 來源歸檔含更正追蹤與 `.claude/.ical/` 專案設定。514 tests。 |
 | v1.15.0 | **Startup banner 偵測「versioned Claude Code host ＋ 未授權 EventKit」組合**（#175）：banner 解釋 path 旋轉並指向可操作修法；此訊號觸發時抑制矛盾的 `--setup` 建議行。另含 #173 parent-chain 診斷 polish。 |
