@@ -1968,18 +1968,13 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
             return "Undone: restored event '\(EventKitErrorSanitizer.sanitizeForInterpolation(oldSnapshot.title))' to previous state"
 
         case .createReminder(let id, let title):
-            // Undo create = delete
+            // Undo create = delete. Same invariant as .createEvent (#182): a missing
+            // target must surface, never report "removed" for a no-op; #206 makes it
+            // the permanent, discard-classified error like every other reminder arm.
             try await ensureReminderAccess()
-            let predicate = eventStore.predicateForReminders(in: nil)
-            let reminders = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<[EKReminder], Error>) in
-                eventStore.fetchReminders(matching: predicate) { reminders in
-                    cont.resume(returning: reminders ?? [])
-                }
-            }
-            if let reminder = reminders.first(where: { $0.calendarItemIdentifier == id }) {
-                try eventStore.remove(reminder, commit: true)
-                markNeedsRefresh()
-            }
+            let reminder = try await resolveReminderForHistory(id: id, title: title, verb: "undo creation of reminder")
+            try eventStore.remove(reminder, commit: true)
+            markNeedsRefresh()
             return "Undone: removed created reminder '\(EventKitErrorSanitizer.sanitizeForInterpolation(title))'"
 
         case .deleteReminder(let snapshot):
@@ -1994,7 +1989,7 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
         case .updateReminder(let id, let oldSnapshot):
             // Undo update = restore old values
             try await ensureReminderAccess()
-            let reminder = try resolveReminderForHistory(id: id)
+            let reminder = try await resolveReminderForHistory(id: id, title: oldSnapshot.title, verb: "undo update of reminder")
             applyReminderSnapshot(oldSnapshot, to: reminder)
             try eventStore.save(reminder, commit: true)
             markNeedsRefresh()
@@ -2002,7 +1997,7 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
 
         case .completeReminder(let id, let wasCompleted, _, _, let title):
             try await ensureReminderAccess()
-            let reminder = try resolveReminderForHistory(id: id)
+            let reminder = try await resolveReminderForHistory(id: id, title: title, verb: "undo completion of reminder")
             try apply(operation.completionWrite(undo: true, now: Date()), to: reminder)
             try eventStore.save(reminder, commit: true)
             markNeedsRefresh()
@@ -2010,7 +2005,7 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
 
         case .completeRecurringReminder(let before, _):
             try await ensureReminderAccess()
-            let reminder = try resolveRecurringOccurrence(before, verb: "undo")
+            let reminder = try await resolveRecurringOccurrence(before, verb: "undo")
             try apply(operation.completionWrite(undo: true, now: Date()), to: reminder)
             try eventStore.save(reminder, commit: true)
             markNeedsRefresh()
@@ -2032,27 +2027,38 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
     /// (on-device probe, PR #195). Acting on the advanced item would mutate the
     /// wrong occurrence, and no retry can make the identity match again, so
     /// the failure is permanent and the caller discards the history entry.
-    /// #206: the reminder a history entry points at. Store lag is given one forced
-    /// refresh; a miss after that is a deletion and the entry is discarded (see
-    /// `ReminderUndoLookup`). Replaces the per-arm fetch-all-and-filter lookups.
-    private func resolveReminderForHistory(id: String) throws -> EKReminder {
-        refreshIfNeeded()
-        return try ReminderUndoLookup.resolve(
-            id: id, what: "reminder",
-            lookup: { eventStore.calendarItem(withIdentifier: $0) as? EKReminder },
-            refresh: { eventStore.refreshSourcesIfNecessary(); needsRefresh = false })
+    /// #206: the reminder a history entry points at, resolved by a real store fetch
+    /// (not the in-memory cache, so a stale hit cannot mask an external deletion);
+    /// a miss gets `refreshSourcesIfNecessary()` and a second fetch, and a miss that
+    /// survives both becomes the permanent, discard-classified error that names the
+    /// entry (see `ReminderUndoLookup` for what a miss can and cannot prove).
+    private func resolveReminderForHistory(id: String, title: String, verb: String) async throws -> EKReminder {
+        do {
+            return try await ReminderUndoLookup.resolve(
+                id: id,
+                lookup: { id in try await self.fetchAllReminders().first { $0.calendarItemIdentifier == id } },
+                refresh: { self.eventStore.refreshSourcesIfNecessary(); self.needsRefresh = false })
+        } catch let missing as ReminderUndoLookup.NotFound {
+            throw ReminderUndoLookup.permanentError(for: missing, title: title, verb: verb)
+        }
     }
 
-    private func resolveRecurringOccurrence(_ before: ReminderCompletionSnapshot, verb: String) throws -> EKReminder {
+    private func fetchAllReminders() async throws -> [EKReminder] {
+        let predicate = eventStore.predicateForReminders(in: nil)
+        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<[EKReminder], Error>) in
+            eventStore.fetchReminders(matching: predicate) { reminders in
+                cont.resume(returning: reminders ?? [])
+            }
+        }
+    }
+
+    private func resolveRecurringOccurrence(_ before: ReminderCompletionSnapshot, verb: String) async throws -> EKReminder {
         let title = EventKitErrorSanitizer.sanitizeForInterpolation(before.title)
-        // Same refresh discipline as the read paths: the guard must compare
-        // against the store's current state, not the cache this completion
-        // itself marked dirty.
-        refreshIfNeeded()
-        // #206: a miss that survives a forced refresh is a deletion — permanent,
-        // discarded — not store lag; a resolved-but-different occurrence is
-        // permanent too (below).
-        let reminder = try resolveReminderForHistory(id: before.id)
+        // The store fetch inside resolveReminderForHistory is the read-path refresh
+        // discipline (#204): the guard compares against the store's current state,
+        // not the cache this completion itself marked dirty. A miss is permanent
+        // (#206), and so is a resolved-but-different occurrence (below).
+        let reminder = try await resolveReminderForHistory(id: before.id, title: before.title, verb: "\(verb) recurring reminder completion of")
         guard before.matchesOccurrence(ReminderCompletionSnapshot(from: reminder)) else {
             throw UnrecoverableUndoError(message: "Cannot \(verb) recurring reminder completion of '\(title)': its identifier no longer resolves to the recorded occurrence — the series advanced (EventKit keeps the finished occurrence as a separate completed record) or the item's due, rules, list or source were edited since. Act on the intended occurrence explicitly (list_reminders with completed=true, then complete_reminder). This history entry was discarded so earlier operations remain undoable.")
         }
@@ -2086,7 +2092,7 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
             // Redo re-applies the recorded request (#196: never the opposite of
             // wasCompleted — that reopened an idempotently completed reminder).
             try await ensureReminderAccess()
-            let reminder = try resolveReminderForHistory(id: id)
+            let reminder = try await resolveReminderForHistory(id: id, title: title, verb: "redo completion of reminder")
             try apply(operation.completionWrite(undo: false, now: Date()), to: reminder)
             try eventStore.save(reminder, commit: true)
             markNeedsRefresh()
@@ -2094,7 +2100,7 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
 
         case .completeRecurringReminder(let before, let requestedCompleted):
             try await ensureReminderAccess()
-            let reminder = try resolveRecurringOccurrence(before, verb: "redo")
+            let reminder = try await resolveRecurringOccurrence(before, verb: "redo")
             try apply(operation.completionWrite(undo: false, now: Date()), to: reminder)
             try eventStore.save(reminder, commit: true)
             markNeedsRefresh()
