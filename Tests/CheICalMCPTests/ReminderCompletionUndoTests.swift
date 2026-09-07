@@ -2,13 +2,14 @@ import EventKit
 import XCTest
 @testable import CheICalMCP
 
-/// Completion undo records are value-only; no EventKitManager instance or TCC.
+/// Completion undo records are value-only: no EventKitManager instance, and the
+/// EventKit objects used are in-memory (never fetched or saved), so no TCC prompt.
 final class ReminderCompletionUndoTests: XCTestCase {
     private func snapshot(title: String = "Daily reminder", completed: Bool = false) -> ReminderCompletionSnapshot {
         ReminderCompletionSnapshot(
             id: "recurring-194", title: title, calendarID: "calendar",
             sourceID: "source", isCompleted: completed, hasRecurrence: true,
-            due: nil, rules: []
+            due: nil, rules: [], completionDate: completed ? Self.recordedCompletion : nil
         )
     }
 
@@ -79,7 +80,7 @@ final class ReminderCompletionUndoTests: XCTestCase {
         let daily = ReminderRecurrenceRuleValue(from: EKRecurrenceRule(recurrenceWith: .daily, interval: 1, end: nil))
         let identifiable = ReminderCompletionSnapshot(
             id: "r", title: "t", calendarID: "c", sourceID: "s", isCompleted: false, hasRecurrence: true,
-            due: ReminderDueValue(components: DateComponents(year: 2026, month: 9, day: 5)), rules: [daily])
+            due: ReminderDueValue(components: DateComponents(year: 2026, month: 9, day: 5)), rules: [daily], completionDate: nil)
         guard case .completeRecurringReminder = UndoOperation.forCompletion(before: identifiable, requestedCompleted: true, savedTitle: "t") else {
             return XCTFail("identifiable recurring snapshot must get the guarded record")
         }
@@ -87,7 +88,7 @@ final class ReminderCompletionUndoTests: XCTestCase {
             return XCTFail("non-identifiable recurring snapshot must fall back to the legacy record")
         }
         XCTAssertEqual(id, "recurring-194"); XCTAssertFalse(wasCompleted); XCTAssertEqual(title, "Saved")
-        let oneOff = ReminderCompletionSnapshot(id: "o", title: "t", calendarID: "c", sourceID: "s", isCompleted: true, hasRecurrence: false, due: nil, rules: [])
+        let oneOff = ReminderCompletionSnapshot(id: "o", title: "t", calendarID: "c", sourceID: "s", isCompleted: true, hasRecurrence: false, due: nil, rules: [], completionDate: Self.recordedCompletion)
         guard case .completeReminder(_, let was, _, _, _) = UndoOperation.forCompletion(before: oneOff, requestedCompleted: false, savedTitle: "t") else {
             return XCTFail("one-off reminder must use the legacy record")
         }
@@ -158,7 +159,7 @@ final class ReminderCompletionUndoTests: XCTestCase {
         // a completion instant is a different value but the same occurrence.
         let reopened = ReminderCompletionSnapshot(
             id: "recurring-196", title: "Daily", calendarID: "calendar", sourceID: "source",
-            isCompleted: false, hasRecurrence: true, due: due, rules: [daily])
+            isCompleted: false, hasRecurrence: true, due: due, rules: [daily], completionDate: nil)
         XCTAssertNotEqual(before, reopened)
         XCTAssertTrue(before.matchesOccurrence(reopened))
     }
@@ -194,7 +195,6 @@ final class ReminderCompletionUndoTests: XCTestCase {
         XCTAssertEqual(recorded, Self.recordedCompletion)
     }
 
-#if !CI_BUILD
     func testSnapshotFromEKReminderCapturesTheCompletionInstant() {
         // In-memory EKReminder; nothing is fetched or saved, so no TCC prompt.
         let reminder = EKReminder(eventStore: EKEventStore())
@@ -204,5 +204,52 @@ final class ReminderCompletionUndoTests: XCTestCase {
         XCTAssertTrue(snapshot.isCompleted)
         XCTAssertEqual(snapshot.completionDate, Self.recordedCompletion)
     }
-#endif
+
+    // MARK: - #196 round 3 (post verify round 2): the mapping and the write are pinned
+
+    func testUndoWriteRestoresTheRecordedInstantForBothRecords() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let legacy = UndoOperation.forCompletion(before: completedOneOff(), requestedCompleted: false, savedTitle: "Once")
+        XCTAssertEqual(legacy.completionWrite(undo: true, now: now),
+                       ReminderCompletionWrite(isCompleted: true, completionDate: Self.recordedCompletion))
+        let recurring = UndoOperation.completeRecurringReminder(before: snapshot(completed: true), requestedCompleted: false)
+        XCTAssertEqual(recurring.completionWrite(undo: true, now: now),
+                       ReminderCompletionWrite(isCompleted: true, completionDate: Self.recordedCompletion))
+        XCTAssertNil(UndoOperation.createReminder(id: "x", title: "x").completionWrite(undo: true, now: now))
+    }
+
+    func testRedoWriteReplaysTheRequestNeverTheOppositeOfThePriorState() {
+        // Idempotent completion: before.isCompleted == true, requested == true.
+        // A redo that inferred !wasCompleted would reopen the reminder here.
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let legacy = UndoOperation.forCompletion(before: completedOneOff(), requestedCompleted: true, savedTitle: "Once")
+        XCTAssertEqual(legacy.completionWrite(undo: false, now: now),
+                       ReminderCompletionWrite(isCompleted: true, completionDate: now))
+        let reopen = UndoOperation.forCompletion(before: completedOneOff(), requestedCompleted: false, savedTitle: "Once")
+        XCTAssertEqual(reopen.completionWrite(undo: false, now: now),
+                       ReminderCompletionWrite(isCompleted: false, completionDate: nil))
+        let recurring = UndoOperation.completeRecurringReminder(before: snapshot(completed: true), requestedCompleted: true)
+        XCTAssertEqual(recurring.completionWrite(undo: false, now: now)?.isCompleted, true)
+    }
+
+    func testApplyWritesTheRecordedInstantOverEventKitsOwnStamp() {
+        // The write the fix actually performs, on an in-memory EKReminder: setting
+        // isCompleted makes EventKit stamp "now"; the recorded instant must win.
+        let reminder = EKReminder(eventStore: EKEventStore())
+        ReminderCompletionWrite(isCompleted: true, completionDate: Self.recordedCompletion).apply(to: reminder)
+        XCTAssertTrue(reminder.isCompleted)
+        XCTAssertEqual(reminder.completionDate, Self.recordedCompletion)
+        ReminderCompletionWrite(isCompleted: false, completionDate: nil).apply(to: reminder)
+        XCTAssertFalse(reminder.isCompleted)
+        XCTAssertNil(reminder.completionDate)
+    }
+
+    func testReminderSnapshotCapturesTheCompletionInstant() {
+        let store = EKEventStore()
+        let reminder = EKReminder(eventStore: store)
+        reminder.calendar = EKCalendar(for: .reminder, eventStore: store)   // in-memory; the snapshot reads calendar.title
+        reminder.title = "Edited later"
+        reminder.completionDate = Self.recordedCompletion
+        XCTAssertEqual(ReminderSnapshot(from: reminder).completionDate, Self.recordedCompletion)
+    }
 }

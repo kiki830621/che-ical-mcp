@@ -307,6 +307,25 @@ extension UndoOperation {
     }
 }
 
+extension UndoOperation {
+    /// The completion write an undo (`undo: true`) or redo (`undo: false`) of a
+    /// completion record performs (#196). Pure, so a regression in the mapping —
+    /// e.g. a redo that infers `!wasCompleted` — fails a unit test instead of
+    /// reopening a reminder on device. `nil` for records that are not completions.
+    func completionWrite(undo: Bool, now: Date) -> ReminderCompletionWrite? {
+        switch self {
+        case .completeReminder(_, let wasCompleted, let requestedCompleted, let completionDate, _):
+            return undo ? ReminderCompletionWrite.plan(isCompleted: wasCompleted, recorded: completionDate, now: now)
+                        : ReminderCompletionWrite.plan(isCompleted: requestedCompleted, recorded: nil, now: now)
+        case .completeRecurringReminder(let before, let requestedCompleted):
+            return undo ? ReminderCompletionWrite.plan(isCompleted: before.isCompleted, recorded: before.completionDate, now: now)
+                        : ReminderCompletionWrite.plan(isCompleted: requestedCompleted, recorded: nil, now: now)
+        default:
+            return nil
+        }
+    }
+}
+
 enum UndoFailureDisposition: Equatable {
     case restore   // transient: keep the entry so the user can fix and retry (#191)
     case discard   // permanent: drop the entry so older operations stay reachable
