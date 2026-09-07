@@ -215,6 +215,9 @@ final class EventKitErrorSanitizerTests: XCTestCase {
         let cliErr: any Error = CLIRunner.CLIError.missingToolName
         XCTAssertTrue(cliErr is TrustedErrorMessage, "CLIRunner.CLIError must conform")
 
+        let undoErr: any Error = UnrecoverableUndoError(message: "x")
+        XCTAssertTrue(undoErr is TrustedErrorMessage, "UnrecoverableUndoError must conform (author-controlled message; title passes sanitizeForInterpolation)")
+
         // Negative: well-known Foundation types must NOT conform — their
         // localizedDescription sources Apple-framework strings that may
         // interpolate user-controlled content (#21 / #27 threat class).

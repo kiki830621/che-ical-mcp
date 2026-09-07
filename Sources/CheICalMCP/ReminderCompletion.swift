@@ -33,6 +33,28 @@ struct ReminderCompletionSnapshot: Equatable, Sendable {
                   due: ReminderDueValue(components: reminder.dueDateComponents),
                   rules: reminder.recurrenceRules?.map { ReminderRecurrenceRuleValue(from: $0) })
     }
+
+    /// Whether this snapshot carries enough immutable identity to be matched
+    /// later. A recurring item needs a due and rules to compare by value; it
+    /// does NOT need an orderable instant or a mapped frequency — those are
+    /// `ReminderNextOccurrence.evaluate`'s preconditions, not identity's, and
+    /// requiring them here would route DST-fold or unknown-frequency items to
+    /// the unguarded legacy record. Reflexive by construction:
+    /// `x.matchesOccurrence(x)` holds whenever `x.isIdentifiable`.
+    var isIdentifiable: Bool {
+        guard !id.isEmpty, !calendarID.isEmpty, !sourceID.isEmpty else { return false }
+        guard hasRecurrence else { return true }
+        guard due != nil, let rules, !rules.isEmpty else { return false }
+        return true
+    }
+
+    /// Completion state and title are not occurrence identity: the same
+    /// identifier resolving to a later due date is a different occurrence.
+    func matchesOccurrence(_ other: Self) -> Bool {
+        guard isIdentifiable, other.isIdentifiable else { return false }
+        return id == other.id && calendarID == other.calendarID && sourceID == other.sourceID
+            && hasRecurrence == other.hasRecurrence && due == other.due && rules == other.rules
+    }
 }
 
 /// An observation, never a recurrence calculation or an inferred series end.

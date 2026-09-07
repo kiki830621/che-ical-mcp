@@ -1477,10 +1477,17 @@ class CheICalMCPServer {
         do {
             message = try await eventKitManager.executeUndo(record.operation)
         } catch {
-            // A failed undo must not consume the entry: put it back so the user
-            // can fix the environment and retry (previously the record was lost
-            // and a retry undid the WRONG, older operation).
-            await CalendarUndoManager.shared.restoreFailedUndo(record)
+            switch UndoFailureDisposition.of(error) {
+            case .restore:
+                // A failed undo must not consume the entry: put it back so the user
+                // can fix the environment and retry (previously the record was lost
+                // and a retry undid the WRONG, older operation).
+                await CalendarUndoManager.shared.restoreFailedUndo(record)
+            case .discard:
+                // Permanent: re-appending would jam every older entry behind an
+                // always-failing head (verify round 1 on PR #195, row 1).
+                await CalendarUndoManager.shared.discardFailedUndo(record)
+            }
             throw error
         }
         return try actionResult(["action": "undo", "success": true, "message": message])
@@ -1495,7 +1502,10 @@ class CheICalMCPServer {
         do {
             message = try await eventKitManager.executeRedo(record.operation)
         } catch {
-            await CalendarUndoManager.shared.restoreFailedRedo(record)
+            switch UndoFailureDisposition.of(error) {
+            case .restore: await CalendarUndoManager.shared.restoreFailedRedo(record)
+            case .discard: await CalendarUndoManager.shared.discardFailedRedo(record)
+            }
             throw error
         }
         return try actionResult(["action": "redo", "success": true, "message": message])

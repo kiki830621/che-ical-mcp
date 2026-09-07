@@ -32,6 +32,7 @@ import Foundation
 ///   - `ToolError` (Server.swift)
 ///   - `EventKitError` (EventKit/EventKitManager.swift)
 ///   - `CLIRunner.CLIError` (CLIRunner.swift)
+///   - `UnrecoverableUndoError` (EventKit/UndoManager.swift)
 ///
 /// Adding a new conformer MUST update both this list AND the test
 /// `testTrustedErrorMessageConformerListIsCanonical` in

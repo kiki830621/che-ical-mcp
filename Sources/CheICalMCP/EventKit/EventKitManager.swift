@@ -1706,7 +1706,10 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
         let next = ReminderNextOccurrence.evaluate(before: before, observed: afterSave,
                                                    requestedCompleted: completed)
         markNeedsRefresh()
-        await CalendarUndoManager.shared.record(.completeReminder(id: identifier, wasCompleted: before.isCompleted, title: afterSave.title))
+        // Identity-guarded record for identifiable recurring items (undo refuses and
+        // is discarded once the identifier resolves to a later occurrence — see
+        // executeUndo); legacy identifier-keyed record for everything else.
+        await CalendarUndoManager.shared.record(.forCompletion(before: before, requestedCompleted: completed, savedTitle: afterSave.title))
         return ReminderCompletionResult(before: before, afterSave: afterSave,
                                         requestedCompleted: completed, nextOccurrence: next)
     }
@@ -2021,6 +2024,14 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
             markNeedsRefresh()
             return "Undone: set reminder '\(EventKitErrorSanitizer.sanitizeForInterpolation(title))' completion to \(wasCompleted)"
 
+        case .completeRecurringReminder(let before, _):
+            try await ensureReminderAccess()
+            let reminder = try resolveRecurringOccurrence(before, verb: "undo")
+            reminder.isCompleted = before.isCompleted
+            try eventStore.save(reminder, commit: true)
+            markNeedsRefresh()
+            return "Undone: set recurring reminder '\(EventKitErrorSanitizer.sanitizeForInterpolation(before.title))' completion to \(before.isCompleted)"
+
         case .batch(let ops):
             var results: [String] = []
             for op in ops.reversed() {
@@ -2029,6 +2040,31 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
             }
             return "Undone batch (\(results.count) operations)"
         }
+    }
+
+    /// The recorded identifier may now resolve to the NEXT occurrence: on
+    /// iCloud, completing a recurring reminder advances the same identifier in
+    /// place and files the finished occurrence as a separate completed record
+    /// (on-device probe, PR #195). Acting on the advanced item would mutate the
+    /// wrong occurrence, and no retry can make the identity match again, so
+    /// the failure is permanent and the caller discards the history entry.
+    private func resolveRecurringOccurrence(_ before: ReminderCompletionSnapshot, verb: String) throws -> EKReminder {
+        let title = EventKitErrorSanitizer.sanitizeForInterpolation(before.title)
+        // Same refresh discipline as the read paths: the guard must compare
+        // against the store's current state, not the cache this completion
+        // itself marked dirty.
+        refreshIfNeeded()
+        // Not found is treated as transient (store lag) and keeps the entry for a
+        // retry, exactly like the legacy arms (#191); a deleted item therefore
+        // stays on the stack until the user clears it, same as every other arm.
+        // Only a resolved-but-different occurrence is permanent.
+        guard let reminder = eventStore.calendarItem(withIdentifier: before.id) as? EKReminder else {
+            throw EventKitError.reminderNotFound(identifier: before.id)
+        }
+        guard before.matchesOccurrence(ReminderCompletionSnapshot(from: reminder)) else {
+            throw UnrecoverableUndoError(message: "Cannot \(verb) recurring reminder completion of '\(title)': its identifier no longer resolves to the recorded occurrence — the series advanced (EventKit keeps the finished occurrence as a separate completed record) or the item's due, rules, list or source were edited since. Act on the intended occurrence explicitly (list_reminders with completed=true, then complete_reminder). This history entry was discarded so earlier operations remain undoable.")
+        }
+        return reminder
     }
 
     /// Execute an operation again (for redo). Same as the original mutation.
@@ -2070,6 +2106,14 @@ actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionS
             try eventStore.save(reminder, commit: true)
             markNeedsRefresh()
             return "Redone: set reminder '\(EventKitErrorSanitizer.sanitizeForInterpolation(title))' completion to \(!wasCompleted)"
+
+        case .completeRecurringReminder(let before, let requestedCompleted):
+            try await ensureReminderAccess()
+            let reminder = try resolveRecurringOccurrence(before, verb: "redo")
+            reminder.isCompleted = requestedCompleted
+            try eventStore.save(reminder, commit: true)
+            markNeedsRefresh()
+            return "Redone: set recurring reminder '\(EventKitErrorSanitizer.sanitizeForInterpolation(before.title))' completion to \(requestedCompleted)"
 
         case .batch(let ops):
             var results: [String] = []

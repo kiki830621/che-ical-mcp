@@ -11,10 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Added** — `list_reminders` / `search_reminders` expose `has_recurrence`, the full public `recurrence_rules` (including `frequency_raw_value`) and a `due` object (`date` / `time` / `timezone` / `date_time`) next to the legacy fields (Refs #194).
 - **Fixed** — `complete_reminder` separates the write outcome (`operation`) from the saved object's state. The successor is observed once, synchronously, from the saved object (no polling) and reported as `next_occurrence`: `confirmed` with the observed due in the message (reminder-local wall clock), or `unknown` with a reason. The saved object is always echoed as `observed`. Reopening is `operation.type: "reopen"`; legacy `action` / `is_completed` are unchanged (Refs #194).
+- **Fixed** — Undo/redo of a recurring completion is identity-guarded (pre-write due / rules / list / source snapshot). When the identifier has advanced to a later occurrence the undo fails explicitly and its history entry is discarded instead of re-appended, so earlier operations stay undoable; transient failures (including a reminder that cannot be found right now) keep the entry (#191). Recurring snapshots with no due or no rules fall back to the legacy identifier-keyed record (for that subset the pre-#204 no-op undo / successor-completing redo remain). `undo_history` lists guarded entries as `Completed/Reopened recurring reminder: <title>` (Refs #204).
 
 ### Known follow-up (tracked separately)
 
-- PR #200 — identity-guarded undo/redo for recurring completions (today, after a rollover, the legacy undo is a no-op that reports success and a redo completes the successor).
 - PR #201 — `completed` must be a JSON boolean on all reminder tools (BREAKING).
 - #196 / #197 / #198 / #199 — review follow-ups (undo `completionDate`, read-path materialization cost, recurrence JSON shape parity with events, structural debt around `completeReminder`).
 

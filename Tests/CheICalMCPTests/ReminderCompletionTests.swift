@@ -183,4 +183,43 @@ final class ReminderCompletionTests: XCTestCase {
         XCTAssertEqual((observed["due"] as? [String: Any])?["date"] as? String, "2026-09-05")
         XCTAssertTrue(JSONSerialization.isValidJSONObject(dictionary))
     }
+
+    // MARK: - occurrence identity (recurring undo guard)
+
+    func testMatchesOccurrenceIsReflexiveForIdentifiableSnapshots() {
+        // An identity predicate that is false for x == x jams the undo stack on
+        // items that never changed (verify round 1, rows 1 / 18).
+        let recurring = snapshot()
+        XCTAssertTrue(recurring.isIdentifiable)
+        XCTAssertTrue(recurring.matchesOccurrence(recurring))
+        let oneOff = snapshot(recurring: false, day: nil)
+        XCTAssertTrue(oneOff.isIdentifiable)
+        XCTAssertTrue(oneOff.matchesOccurrence(oneOff))
+    }
+
+    func testOccurrenceGuardAllowsCompletionChangeButRejectsRollover() {
+        XCTAssertTrue(snapshot().matchesOccurrence(snapshot(completed: true)))
+        XCTAssertFalse(snapshot().matchesOccurrence(snapshot(day: 6)))
+        XCTAssertFalse(snapshot().matchesOccurrence(snapshot(interval: 2)))
+        XCTAssertFalse(snapshot().matchesOccurrence(snapshot(calendar: "other")))
+        XCTAssertFalse(snapshot().matchesOccurrence(snapshot(source: "other")))
+        XCTAssertFalse(snapshot().matchesOccurrence(snapshot(id: "other")))
+    }
+
+    func testRecurringSnapshotWithoutDueOrRulesIsNotIdentifiable() {
+        XCTAssertFalse(snapshot(day: nil).isIdentifiable)
+        // Identity is value equality, not orderability: a due that has no
+        // chronological instant (DST fold, invalid day) is still comparable.
+        XCTAssertTrue(snapshot(day: 32).isIdentifiable)
+        XCTAssertTrue(snapshot(day: 32).matchesOccurrence(snapshot(day: 32)))
+        let noRules = ReminderCompletionSnapshot(
+            id: "r", title: "t", calendarID: "c", sourceID: "s", isCompleted: false,
+            hasRecurrence: true, due: snapshot().due, rules: nil)
+        XCTAssertFalse(noRules.isIdentifiable)
+        let emptyRules = ReminderCompletionSnapshot(
+            id: "r", title: "t", calendarID: "c", sourceID: "s", isCompleted: false,
+            hasRecurrence: true, due: snapshot().due, rules: [])
+        XCTAssertFalse(emptyRules.isIdentifiable)
+        XCTAssertFalse(snapshot(day: nil).matchesOccurrence(snapshot(day: nil)))
+    }
 }
