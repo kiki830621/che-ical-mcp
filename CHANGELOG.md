@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+**#194 — reminder recurrence on read, and explicit completion results.**
+
+- **Added** — `list_reminders` / `search_reminders` expose `has_recurrence`, the full public `recurrence_rules` (including `frequency_raw_value`) and a `due` object (`date` / `time` / `timezone` / `date_time`) next to the legacy fields (Refs #194).
+- **Fixed** — `complete_reminder` separates the write outcome (`operation`) from the saved object's state. The successor is observed once, synchronously, from the saved object (no polling) and reported as `next_occurrence`: `confirmed` with the observed due in the message (reminder-local wall clock), or `unknown` with a reason. The saved object is always echoed as `observed`. Reopening is `operation.type: "reopen"`; legacy `action` / `is_completed` are unchanged (Refs #194).
+
+### Known follow-up (tracked separately)
+
+- PR #200 — identity-guarded undo/redo for recurring completions (today, after a rollover, the legacy undo is a no-op that reports success and a redo completes the successor).
+- PR #201 — `completed` must be a JSON boolean on all reminder tools (BREAKING).
+- #196 / #197 / #198 / #199 — review follow-ups (undo `completionDate`, read-path materialization cost, recurrence JSON shape parity with events, structural debt around `completeReminder`).
+
 ## [1.16.1] - 2026-08-31
 
 **#191 — undo of a recurring-series deletion no longer fails with 1010, and a failed undo no longer consumes the entry.**

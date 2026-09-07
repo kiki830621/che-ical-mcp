@@ -30,7 +30,7 @@ protocol EventKitManaging: Sendable {
 }
 
 /// EventKit wrapper for Calendar and Reminders operations
-actor EventKitManager: EventKitManaging {
+actor EventKitManager: EventKitManaging, ReminderReadSource, ReminderCompletionSource {
     private let eventStore: EKEventStore
     private let authorizationSource: AuthorizationStatusSource
     private var needsRefresh = false
@@ -1421,6 +1421,16 @@ actor EventKitManager: EventKitManaging {
         return reminders.map { $0.calendarItemIdentifier }
     }
 
+    func listReminderSnapshots(completed: Bool?, calendarName: String?, calendarSource: String?) async throws -> [ReminderReadSnapshot] {
+        let reminders = try await listReminders(completed: completed, calendarName: calendarName, calendarSource: calendarSource)
+        return reminders.map(ReminderReadSnapshot.init(from:))
+    }
+
+    func searchReminderSnapshots(keywords: [String], matchMode: String, calendarName: String?, calendarSource: String?, completed: Bool?) async throws -> [ReminderReadSnapshot] {
+        let reminders = try await searchReminders(keywords: keywords, matchMode: matchMode, calendarName: calendarName, calendarSource: calendarSource, completed: completed)
+        return reminders.map(ReminderReadSnapshot.init(from:))
+    }
+
     func listReminders(completed: Bool? = nil, calendarName: String? = nil, calendarSource: String? = nil) async throws -> [EKReminder] {
         try await ensureReminderAccess()
         refreshIfNeeded()
@@ -1674,26 +1684,31 @@ actor EventKitManager: EventKitManaging {
         return reminder
     }
 
-    func completeReminder(identifier: String, completed: Bool = true) async throws -> EKReminder {
+    func completeReminder(identifier: String, completed: Bool = true) async throws -> ReminderCompletionResult {
         try await ensureReminderAccess()
-
+        // Same refresh discipline as the read paths, so the pre-save snapshot the
+        // successor comparison is anchored on is not stale from an earlier mutation.
+        refreshIfNeeded()
         guard let reminder = eventStore.calendarItem(withIdentifier: identifier) as? EKReminder else {
             throw EventKitError.reminderNotFound(identifier: identifier)
         }
-
-        let wasCompleted = reminder.isCompleted
-
+        let before = ReminderCompletionSnapshot(from: reminder)
         reminder.isCompleted = completed
-        if completed {
-            reminder.completionDate = Date()
-        } else {
-            reminder.completionDate = nil
-        }
-
+        reminder.completionDate = completed ? Date() : nil
         try eventStore.save(reminder, commit: true)
+        // Observe exactly once, synchronously, before any suspension point. On
+        // iCloud (on-device probe, PR #195) save advances a recurring reminder in
+        // place, so this read already reflects the successor; a store that surfaces
+        // the successor later or under another identifier yields `unknown`, never a
+        // guess. No polling and no refresh here: a later read of the cached store
+        // cannot be attributed to this save rather than to another writer.
+        let afterSave = ReminderCompletionSnapshot(from: reminder)
+        let next = ReminderNextOccurrence.evaluate(before: before, observed: afterSave,
+                                                   requestedCompleted: completed)
         markNeedsRefresh()
-        await CalendarUndoManager.shared.record(.completeReminder(id: identifier, wasCompleted: wasCompleted, title: reminder.title ?? ""))
-        return reminder
+        await CalendarUndoManager.shared.record(.completeReminder(id: identifier, wasCompleted: before.isCompleted, title: afterSave.title))
+        return ReminderCompletionResult(before: before, afterSave: afterSave,
+                                        requestedCompleted: completed, nextOccurrence: next)
     }
 
     func deleteReminder(identifier: String) async throws {

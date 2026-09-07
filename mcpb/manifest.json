@@ -69,7 +69,7 @@
     },
     {
       "name": "list_reminders",
-      "description": "List reminders from the Reminders app"
+      "description": "List reminders with structured recurrence rules and due-date precision"
     },
     {
       "name": "create_reminder",
@@ -81,7 +81,7 @@
     },
     {
       "name": "complete_reminder",
-      "description": "Mark a reminder as completed or incomplete"
+      "description": "Complete or reopen a reminder with an explicit operation result and observed next occurrence"
     },
     {
       "name": "delete_reminder",
@@ -125,7 +125,7 @@
     },
     {
       "name": "search_reminders",
-      "description": "Search reminders by keyword(s) or tag with AND/OR matching"
+      "description": "Search reminders by keyword(s) or tag with AND/OR matching and structured recurrence metadata"
     },
     {
       "name": "create_reminders_batch",

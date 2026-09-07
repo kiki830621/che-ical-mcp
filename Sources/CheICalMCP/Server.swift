@@ -38,6 +38,8 @@ class CheICalMCPServer {
     // uses the shared singleton (D1 in design.md: protocol covers only the
     // 3 methods the cleanup handler needs).
     private let reminderCleanupSource: any EventKitManaging
+    private let reminderReadSource: any ReminderReadSource
+    private let reminderCompletionSource: any ReminderCompletionSource
     private let dateFormatter: ISO8601DateFormatter
 
     /// Local time formatter for user-friendly display
@@ -67,8 +69,12 @@ class CheICalMCPServer {
     /// `CleanupHandlerTests` passes a `FakeEventKitManager`. New handlers that
     /// need a test fake should add their own narrow `*Source` parameter here
     /// rather than widening `EventKitManaging`.
-    init(reminderCleanupSource: any EventKitManaging = EventKitManager.shared) async throws {
+    init(reminderCleanupSource: any EventKitManaging = EventKitManager.shared,
+         reminderReadSource: any ReminderReadSource = EventKitManager.shared,
+         reminderCompletionSource: any ReminderCompletionSource = EventKitManager.shared) async throws {
         self.reminderCleanupSource = reminderCleanupSource
+        self.reminderReadSource = reminderReadSource
+        self.reminderCompletionSource = reminderCompletionSource
 
         dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = [.withInternetDateTime]
@@ -456,7 +462,7 @@ class CheICalMCPServer {
             // Reminder Tools
             Tool(
                 name: "list_reminders",
-                description: "List reminders from the Reminders app with optional filtering, sorting, and limiting.",
+                description: "List reminders from the Reminders app with optional filtering, sorting, and limiting. Includes has_recurrence, full public recurrence_rules and due date precision.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
@@ -606,7 +612,7 @@ class CheICalMCPServer {
             ),
             Tool(
                 name: "complete_reminder",
-                description: "Mark a reminder as completed or incomplete.",
+                description: "Mark a reminder as completed or incomplete. Read operation.status for write success; legacy is_completed is the saved object state. Recurring reminders may advance to another incomplete occurrence. next_occurrence reports confirmed or unknown; never retry completion just because the next occurrence is unknown.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
@@ -631,7 +637,7 @@ class CheICalMCPServer {
             ),
             Tool(
                 name: "search_reminders",
-                description: "Search reminders by keyword(s) in title or notes, or filter by tag. Supports single keyword or multiple keywords with AND/OR matching.",
+                description: "Search reminders by keyword(s) in title or notes, or filter by tag. Supports single keyword or multiple keywords with AND/OR matching. Includes has_recurrence, full public recurrence_rules and due date precision.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
@@ -1547,7 +1553,7 @@ class CheICalMCPServer {
             completed = arguments["completed"]?.boolValue
         }
 
-        var reminders = try await eventKitManager.listReminders(
+        var reminders = try await reminderReadSource.listReminderSnapshots(
             completed: completed,
             calendarName: calendarName,
             calendarSource: calendarSource
@@ -1620,26 +1626,8 @@ class CheICalMCPServer {
                 dict["creation_date"] = dateFormatter.string(from: creationDate)
                 dict["creation_date_local"] = localDateFormatter.string(from: creationDate)
             }
-            // Location trigger info (from location-based alarms)
-            if let alarms = reminder.alarms {
-                for alarm in alarms {
-                    if let structured = alarm.structuredLocation {
-                        var triggerDict: [String: Any] = ["title": structured.title ?? ""]
-                        if let geo = structured.geoLocation {
-                            triggerDict["latitude"] = geo.coordinate.latitude
-                            triggerDict["longitude"] = geo.coordinate.longitude
-                        }
-                        if structured.radius > 0 { triggerDict["radius"] = structured.radius }
-                        switch alarm.proximity {
-                        case .enter: triggerDict["proximity"] = "enter"
-                        case .leave: triggerDict["proximity"] = "leave"
-                        default: break
-                        }
-                        dict["location_trigger"] = triggerDict
-                        break  // Only show first location trigger
-                    }
-                }
-            }
+            if let trigger = reminder.locationTrigger { dict["location_trigger"] = trigger.dictionary }
+            dict.merge(reminder.recurrenceMetadata) { _, new in new }
             return dict
         }
 
@@ -1774,15 +1762,11 @@ class CheICalMCPServer {
         guard let reminderId = arguments["reminder_id"]?.stringValue else {
             throw ToolError.invalidParameter("reminder_id is required")
         }
-
+        // Legacy contract: a missing or non-boolean `completed` means complete.
+        // Rejecting non-boolean input is a breaking change tracked in PR #201.
         let completed = arguments["completed"]?.boolValue ?? true
-
-        let reminder = try await eventKitManager.completeReminder(
-            identifier: reminderId,
-            completed: completed
-        )
-
-        return try actionResult(["action": "completed", "title": reminder.title ?? "", "id": reminderId, "is_completed": reminder.isCompleted])
+        let result = try await reminderCompletionSource.completeReminder(identifier: reminderId, completed: completed)
+        return try actionResult(result.dictionary)
     }
 
     private func handleDeleteReminder(arguments: [String: Value]) async throws -> String {
@@ -1845,7 +1829,7 @@ class CheICalMCPServer {
         let limit = try InputValidation.requireOptionalLimit(arguments)
 
         // If only tag filter (no keywords), pass empty to get all reminders, then filter by tag
-        var reminders = try await eventKitManager.searchReminders(
+        var reminders = try await reminderReadSource.searchReminderSnapshots(
             keywords: keywords,
             matchMode: matchMode,
             calendarName: calendarName,
@@ -1889,26 +1873,8 @@ class CheICalMCPServer {
                 dict["completion_date"] = dateFormatter.string(from: completionDate)
                 dict["completion_date_local"] = localDateFormatter.string(from: completionDate)
             }
-            // Location trigger info
-            if let alarms = reminder.alarms {
-                for alarm in alarms {
-                    if let structured = alarm.structuredLocation {
-                        var triggerDict: [String: Any] = ["title": structured.title ?? ""]
-                        if let geo = structured.geoLocation {
-                            triggerDict["latitude"] = geo.coordinate.latitude
-                            triggerDict["longitude"] = geo.coordinate.longitude
-                        }
-                        if structured.radius > 0 { triggerDict["radius"] = structured.radius }
-                        switch alarm.proximity {
-                        case .enter: triggerDict["proximity"] = "enter"
-                        case .leave: triggerDict["proximity"] = "leave"
-                        default: break
-                        }
-                        dict["location_trigger"] = triggerDict
-                        break
-                    }
-                }
-            }
+            if let trigger = reminder.locationTrigger { dict["location_trigger"] = trigger.dictionary }
+            dict.merge(reminder.recurrenceMetadata) { _, new in new }
             return dict
         }
 
