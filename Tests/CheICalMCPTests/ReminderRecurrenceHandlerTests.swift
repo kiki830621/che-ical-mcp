@@ -12,6 +12,11 @@ private actor ReminderReadFake: ReminderReadSource {
 }
 
 final class ReminderRecurrenceHandlerTests: XCTestCase {
+    /// "repeat" is `hasRecurrence: true` with `rules == nil` — a state
+    /// `ReminderReadSnapshot(from:)` cannot produce (EventKit's `recurrenceRules`
+    /// is nil only when `hasRecurrenceRules` is false). It pins the serializer's
+    /// documented `null` contract defensively (#203); the production-reachable
+    /// multi-rule shape is covered by `testMultiRuleReminderSerializesEveryRuleThroughListAndSearch`.
     private func records() -> [ReminderReadSnapshot] {
         [ReminderReadSnapshot(id: "one", title: "Once", hasRecurrence: false),
          ReminderReadSnapshot(id: "repeat", title: "Repeat", hasRecurrence: true)]
@@ -38,7 +43,7 @@ final class ReminderRecurrenceHandlerTests: XCTestCase {
         let items = try XCTUnwrap(json["reminders"] as? [[String: Any]])
         XCTAssertEqual(json["reminder_count"] as? Int, 2)
         XCTAssertEqual(items[1]["has_recurrence"] as? Bool, true)
-        XCTAssertTrue(items[1]["recurrence_rules"] is NSNull)
+        XCTAssertTrue(items[1]["recurrence_rules"] is NSNull)   // defensive contract, not a reachable state (see records())
         XCTAssertNil(items[1]["creation_date"])
         XCTAssertNil(items[1]["is_overdue"])
         XCTAssertEqual(json["match_mode"] as? String, "any")
