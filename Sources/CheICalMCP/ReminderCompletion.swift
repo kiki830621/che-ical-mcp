@@ -186,6 +186,22 @@ struct ReminderCompletionResult: Sendable {
     }
 }
 
+/// The write an undo / redo / snapshot-restore performs on a reminder's
+/// completion state (#196). Pure so the decision is unit-testable; the manager
+/// applies it. Setting `isCompleted` alone makes EventKit stamp "now", so a
+/// restore to completed must write the recorded instant afterwards.
+struct ReminderCompletionWrite: Equatable, Sendable {
+    let isCompleted: Bool
+    let completionDate: Date?
+
+    /// Completed → the recorded instant (`now` only as a defensive fallback: a
+    /// completed snapshot always carries one). Incomplete → no instant.
+    static func plan(isCompleted: Bool, recorded: Date?, now: Date) -> ReminderCompletionWrite {
+        isCompleted ? ReminderCompletionWrite(isCompleted: true, completionDate: recorded ?? now)
+                    : ReminderCompletionWrite(isCompleted: false, completionDate: nil)
+    }
+}
+
 /// A feature-specific seam; do not widen the cleanup protocol for completion.
 protocol ReminderCompletionSource: Sendable {
     func completeReminder(identifier: String, completed: Bool) async throws -> ReminderCompletionResult

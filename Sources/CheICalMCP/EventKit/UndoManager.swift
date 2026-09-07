@@ -112,6 +112,8 @@ struct ReminderSnapshot {
     let priority: Int
     let dueDateComponents: DateComponents?
     let alarmOffsets: [TimeInterval]?
+    /// #196: restored by undo instead of letting EventKit re-stamp "now".
+    let completionDate: Date?
 
     init(from reminder: EKReminder) {
         self.title = reminder.title ?? ""
@@ -122,6 +124,7 @@ struct ReminderSnapshot {
         self.priority = reminder.priority
         self.dueDateComponents = reminder.dueDateComponents
         self.alarmOffsets = reminder.alarms?.map { $0.relativeOffset }
+        self.completionDate = reminder.completionDate
     }
 }
 
@@ -135,7 +138,10 @@ enum UndoOperation {
     case createReminder(id: String, title: String)
     case deleteReminder(snapshot: ReminderSnapshot)
     case updateReminder(id: String, oldSnapshot: ReminderSnapshot)
-    case completeReminder(id: String, wasCompleted: Bool, completionDate: Date? = nil, title: String)
+    /// #196: `requestedCompleted` is replayed by redo (never inferred as !wasCompleted —
+    /// that reopened an idempotently completed reminder); `completionDate` is the
+    /// pre-write instant undo restores. Neither has a default: dropping them must not compile.
+    case completeReminder(id: String, wasCompleted: Bool, requestedCompleted: Bool, completionDate: Date?, title: String)
     case completeRecurringReminder(before: ReminderCompletionSnapshot, requestedCompleted: Bool)
     case batch([UndoOperation])
 
@@ -159,7 +165,7 @@ enum UndoOperation {
             return "Deleted reminder: \(EventKitErrorSanitizer.sanitizeForInterpolation(snapshot.title))"
         case .updateReminder(_, let old):
             return "Updated reminder: \(EventKitErrorSanitizer.sanitizeForInterpolation(old.title))"
-        case .completeReminder(_, _, _, let title):
+        case .completeReminder(_, _, _, _, let title):
             return "Completed reminder: \(EventKitErrorSanitizer.sanitizeForInterpolation(title))"
         case .completeRecurringReminder(let before, let requestedCompleted):
             let action = requestedCompleted ? "Completed" : "Reopened"
@@ -296,7 +302,7 @@ extension UndoOperation {
         if before.hasRecurrence && before.isIdentifiable {
             return .completeRecurringReminder(before: before, requestedCompleted: requestedCompleted)
         }
-        return .completeReminder(id: before.id, wasCompleted: before.isCompleted,
+        return .completeReminder(id: before.id, wasCompleted: before.isCompleted, requestedCompleted: requestedCompleted,
                                  completionDate: before.completionDate, title: savedTitle)
     }
 }
