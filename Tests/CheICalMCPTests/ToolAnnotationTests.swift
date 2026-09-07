@@ -21,6 +21,14 @@ final class ToolAnnotationTests: XCTestCase {
                        "complete_reminder consumes an occurrence irreversibly on recurring reminders")
     }
 
+    func testCompleteReminderDescriptionExplainsTheDestructiveHint() throws {
+        // The description is the only place a client sees *why* the hint is set;
+        // pin the two together so one cannot drift without the other.
+        let description = try tool(named: "complete_reminder").description ?? ""
+        XCTAssertTrue(description.contains("Annotated destructive"), description)
+        XCTAssertTrue(description.contains("tool-wide"), description)
+    }
+
     func testDeleteReminderStaysAnnotatedDestructive() throws {
         XCTAssertEqual(try tool(named: "delete_reminder").annotations.destructiveHint, true)
     }
